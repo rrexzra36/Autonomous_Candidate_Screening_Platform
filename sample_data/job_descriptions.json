@@ -1,0 +1,40 @@
+[
+  {
+    "job_id": "JOB-MFG-001",
+    "title": "Quality Control Engineer",
+    "department": "Quality Assurance",
+    "hard_requirements": {
+      "min_education": "S1 Teknik Mesin / Industri / Kimia",
+      "min_experience_years": 2,
+      "mandatory_certifications": ["ISO 9001"]
+    },
+    "key_skills": [
+      "Six Sigma",
+      "ISO 9001",
+      "Quality Control",
+      "Root Cause Analysis",
+      "AutoCAD",
+      "Statistical Process Control (SPC)"
+    ],
+    "description": "Bertanggung jawab atas pengendalian kualitas produksi manufaktur, inspeksi bahan baku, pelaksanaan audit mutu ISO 9001, serta reduksi defect rate menggunakan Six Sigma & Statistical Process Control."
+  },
+  {
+    "job_id": "JOB-MFG-002",
+    "title": "Production Supervisor",
+    "department": "Manufacturing Production",
+    "hard_requirements": {
+      "min_education": "D3/S1 Teknik Industri / Elektro / Mesin",
+      "min_experience_years": 3,
+      "mandatory_certifications": []
+    },
+    "key_skills": [
+      "Lean Manufacturing",
+      "PLC Programming",
+      "Shift Management",
+      "Kaizen / 5S",
+      "OEE Optimization",
+      "Safety (K3)"
+    ],
+    "description": "Memimpin operasional lini produksi manufaktur, memastikan pencapaian target OEE (Overall Equipment Effectiveness), pengelolaan regu kerja shift, dan implementasi Kaizen 5S."
+  }
+]

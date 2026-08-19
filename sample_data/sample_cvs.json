@@ -1,0 +1,83 @@
+[
+  {
+    "cv_id": "CV-RAW-001",
+    "personal_info": {
+      "full_name": "Budi Santoso",
+      "email": "budi.santoso@email.com",
+      "gender": "Laki-laki",
+      "age": 27,
+      "photo_url": "https://example.com/photo1.jpg",
+      "address": "Jl. Merdeka No. 45, Jakarta Selatan",
+      "university": "Universitas Indonesia"
+    },
+    "education": {
+      "degree": "S1 Teknik Mesin",
+      "institution": "Universitas Indonesia",
+      "graduation_year": 2021
+    },
+    "work_experience": [
+      {
+        "role": "QA/QC Engineer",
+        "company": "PT Manufaktur Otomotif Indonesia",
+        "duration_years": 3,
+        "achievements": "Memimpin tim inspeksi mutu, berhasil menurunkan klaim cacat produk sebesar 18% menggunakan metode Six Sigma & SPC, berpengalaman audit ISO 9001:2015."
+      }
+    ],
+    "skills": ["Six Sigma Green Belt", "ISO 9001", "Statistical Process Control", "Root Cause Analysis", "AutoCAD"],
+    "certifications": ["Certified Six Sigma Green Belt", "ISO 9001 Lead Auditor"]
+  },
+  {
+    "cv_id": "CV-RAW-002",
+    "personal_info": {
+      "full_name": "Siti Nurhaliza",
+      "email": "siti.nur@email.com",
+      "gender": "Perempuan",
+      "age": 29,
+      "photo_url": "https://example.com/photo2.jpg",
+      "address": "Jl. Mawar No. 12, Bandung",
+      "university": "Institut Teknologi Bandung"
+    },
+    "education": {
+      "degree": "S1 Teknik Industri",
+      "institution": "Institut Teknologi Bandung",
+      "graduation_year": 2019
+    },
+    "work_experience": [
+      {
+        "role": "Production Supervisor",
+        "company": "PT Precision Parts Corp",
+        "duration_years": 4,
+        "achievements": "Mengelola 40 operator pabrik dalam 3 shift, meningkatkan skor OEE lini perakitan dari 72% menjadi 84%, mengimplementasikan sistem Kaizen 5S."
+      }
+    ],
+    "skills": ["Lean Manufacturing", "Shift Management", "Kaizen / 5S", "OEE Optimization", "PLC Basics", "K3 Umum"],
+    "certifications": ["Sertifikasi Ahli K3 Umum"]
+  },
+  {
+    "cv_id": "CV-RAW-003",
+    "personal_info": {
+      "full_name": "Andi Pratama",
+      "email": "andi.pratama@email.com",
+      "gender": "Laki-laki",
+      "age": 23,
+      "photo_url": "https://example.com/photo3.jpg",
+      "address": "Jl. Diponegoro No. 8, Surabaya",
+      "university": "Universitas Brawijaya"
+    },
+    "education": {
+      "degree": "D3 Teknik Informatika",
+      "institution": "Universitas Brawijaya",
+      "graduation_year": 2023
+    },
+    "work_experience": [
+      {
+        "role": "Junior Web Developer",
+        "company": "PT Software Digital",
+        "duration_years": 1,
+        "achievements": "Mengembangkan aplikasi e-commerce menggunakan ReactJS dan Node.js."
+      }
+    ],
+    "skills": ["JavaScript", "ReactJS", "Node.js", "HTML/CSS", "Git"],
+    "certifications": []
+  }
+]
