@@ -2,15 +2,20 @@
 Multi-Tier Candidate Matching & Scoring Engine
 - Layer 1: Hard Filter (Knockout Criteria)
 - Layer 2: Skill & Semantic Vector Similarity
-- Layer 3: Explainable AI (XAI) Reasoning & Justification Generator
+- Layer 3: Explainable AI (XAI) Reasoning & Justification Generator capturing full candidate profile
 """
 
 from typing import Dict, Any, List
-import re
+import json
+import os
+import warnings
+
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 class CandidateMatcherEngine:
-    def __init__(self):
-        pass
+    def __init__(self, gemini_api_key: str = "", openai_api_key: str = "", *args, **kwargs):
+        self.gemini_api_key = gemini_api_key or kwargs.get("gemini_api_key", "")
+        self.openai_api_key = openai_api_key or kwargs.get("openai_api_key", "")
 
     def evaluate_candidate(self, anonymized_cv: Dict[str, Any], job_desc: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -52,37 +57,16 @@ class CandidateMatcherEngine:
                 
         skill_score = (len(matched_skills) / max(len(jd_skills), 1)) * 100
         exp_score = min((total_exp / max(min_exp, 1)) * 100, 100) if min_exp > 0 else 100
+        education_score = 90.0
         
-        education_score = 90.0 # Standard accredited tier score
-        
-        # Combined Weighted Score
         overall_score = round((skill_score * 0.5) + (exp_score * 0.3) + (education_score * 0.2), 1)
-        
         if not hard_filter_passed:
-            overall_score = round(overall_score * 0.5, 1) # Penalty for missing knockout criteria
+            overall_score = round(overall_score * 0.5, 1)
 
-        # --- TIER 3: Explainable AI (XAI) Reasoning Generator ---
-        pros = []
-        cons = []
-        questions = []
-        
-        if matched_skills:
-            pros.append(f"Menguasai {len(matched_skills)} dari {len(jd_skills)} keahlian kunci: {', '.join(matched_skills)}.")
-        if total_exp >= min_exp:
-            pros.append(f"Memiliki durasi pengalaman {total_exp} tahun (memenuhi target >={min_exp} tahun).")
-            
-        if knockout_reasons:
-            cons.extend(knockout_reasons)
-        missing_skills = [s.title() for s in jd_skills if s.title() not in matched_skills]
-        if missing_skills:
-            cons.append(f"Belum mencantumkan keahlian: {', '.join(missing_skills)}.")
-            
-        # Interview questions recommendation
-        if matched_skills:
-            questions.append(f"Bisakah Anda menceritakan penerapan praktis keahlian {matched_skills[0]} dalam proyek manufaktur Anda?")
-        if missing_skills:
-            questions.append(f"Bagaimana strategi Anda untuk mengadaptasi keahlian {missing_skills[0]} dalam waktu singkat?")
-        questions.append("Ceritakan tantangan terbesar yang pernah Anda hadapi dalam operasional lini produksi dan bagaimana solusi Anda.")
+        # --- TIER 3: LLM / XAI Reasoning ---
+        pros, cons, questions = self._generate_reasoning(
+            anonymized_cv, job_desc, matched_skills, jd_skills, total_exp, min_exp, knockout_reasons
+        )
 
         status = "SHORTLISTED" if (overall_score >= 70 and hard_filter_passed) else ("CONSIDERATION" if overall_score >= 50 else "REJECTED")
 
@@ -106,3 +90,167 @@ class CandidateMatcherEngine:
                 "interview_questions": questions
             }
         }
+
+    def _generate_reasoning(self, cv, job, matched_skills, jd_skills, total_exp, min_exp, knockout_reasons):
+        """
+        Uses Modern Google GenAI SDK (google.genai) to generate hyper-personalized interview questions and reasoning.
+        Falls back to local heuristic capturing full candidate profile if API key is not provided or fails.
+        """
+        if self.gemini_api_key and self.gemini_api_key.strip():
+            prompt = f"""
+Anda adalah Senior Technical Recruiter dan AI Hiring Specialist tingkat lanjut.
+Tugas Anda adalah menganalisis profil kandidat ini secara akurat dan menyajikan analisis Keunggulan (Pros) berdasarkan profil penuh CV kandidat, Catatan Gap (Cons), dan Pertanyaan Wawancara yang dipersonalisasi.
+
+=== DATA LOWONGAN PEKERJAAN (JOB VACANCY) ===
+Posisi: {job.get('title')}
+Jurusan/Prodi: {job.get('major', 'Terkait')}
+Pendidikan Minimal: {job.get('hard_requirements', {}).get('min_education', 'S1')}
+Pengalaman Minimal: {job.get('hard_requirements', {}).get('min_experience_years', 0)} Tahun
+Technical Skills Dibutuhkan: {', '.join(job.get('technical_skills', job.get('key_skills', [])))}
+Soft Skills Dibutuhkan: {', '.join(job.get('soft_skills', []))}
+Tanggung Jawab & Deskripsi:
+{job.get('responsibilities', job.get('description', ''))}
+
+=== DATA CV KANDIDAT (LENGKAP) ===
+{json.dumps(cv, indent=2, ensure_ascii=False)}
+
+=== INSTRUKSI KHUSUS ANALISIS ===
+1. Pada "pros":
+   - Sebutkan SELURUH Technical Skills yang dimiliki kandidat dari CV-nya.
+   - Sebutkan SELURUH Soft Skills yang dimiliki kandidat dari CV-nya.
+   - Cantumkan riwayat pengalaman kerja/proyek/pencapaian nyata dari CV kandidat.
+   - Cantumkan total durasi pengalaman dan pendidikan asli kandidat.
+2. Pada "cons":
+   - Cantumkan Technical Skills atau Soft Skills yang diminta lowongan tapi BELUM tercantum di CV kandidat ini.
+   - Cantumkan kekurangan durasi pengalaman jika ada.
+3. Pada "interview_questions":
+   - Buat 3 pertanyaan wawancara mendalam yang spesifik menguji proyek/software riil yang pernah dikerjakan kandidat ini dan cara mereka mengisi gap kualifikasi lowongan {job.get('title')}.
+
+=== FORMAT OUTPUT (WAJIB JSON MURNI) ===
+{{
+  "pros": [
+    "Technical Skills yang dimiliki: [seluruh skill teknis dari CV]",
+    "Soft Skills yang dimiliki: [seluruh soft skill dari CV]",
+    "[Ulasan riwayat pengalaman kerja/pencapaian proyek kandidat]",
+    "[Durasi pengalaman dan latar belakang pendidikan]"
+  ],
+  "cons": [
+    "Belum mencantumkan Technical Skills: [skill teknis yang diminta lowongan tapi belum ada di CV jika ada]",
+    "Belum mencantumkan Soft Skills: [soft skill yang diminta lowongan tapi belum ada di CV jika ada]",
+    "[Catatan gap pengalaman jika ada]"
+  ],
+  "interview_questions": [
+    "[Pertanyaan 1 mendalam tentang riwayat proyek/software yang pernah dikerjakan kandidat]",
+    "[Pertanyaan 2 strategi adaptasi terhadap gap kualifikasi lowongan]",
+    "[Pertanyaan 3 skenario tantangan nyata posisi ini]"
+  ]
+}}
+"""
+            text = None
+            
+            for model_name in ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro"]:
+                try:
+                    from google import genai
+                    client = genai.Client(api_key=self.gemini_api_key.strip())
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt
+                    )
+                    text = response.text
+                    if text:
+                        break
+                except Exception:
+                    continue
+
+            if not text:
+                for model_name in ["gemini-1.5-flash", "gemini-pro"]:
+                    try:
+                        import google.generativeai as legacy_genai
+                        legacy_genai.configure(api_key=self.gemini_api_key.strip())
+                        model = legacy_genai.GenerativeModel(model_name)
+                        response = model.generate_content(prompt)
+                        text = response.text
+                        if text:
+                            break
+                    except Exception:
+                        continue
+
+            if text:
+                try:
+                    cleaned_text = text.strip()
+                    if "```" in cleaned_text:
+                        parts = cleaned_text.split("```")
+                        for part in parts:
+                            if "{" in part and "}" in part:
+                                cleaned_text = part
+                                if cleaned_text.startswith("json"):
+                                    cleaned_text = cleaned_text[4:]
+                                break
+                    data = json.loads(cleaned_text.strip())
+                    pros = data.get("pros", [])
+                    cons = data.get("cons", [])
+                    questions = data.get("interview_questions", [])
+                    if pros and questions:
+                        return pros, cons, questions
+                except Exception:
+                    pass
+
+        # Fallback Deterministic Heuristic Engine with Full Candidate Profile
+        try:
+            from parser import DocumentParser
+        except ImportError:
+            from src.parser import DocumentParser
+
+        # 1. Extract ALL skills from this specific candidate's CV
+        cand_all_skills = cv.get("skills", [])
+        cand_tech, cand_soft = DocumentParser.classify_skills(cand_all_skills)
+
+        # 2. Extract Matched and Missing Skills
+        matched_tech, matched_soft = DocumentParser.classify_skills(matched_skills)
+        missing_skills = [s.title() for s in jd_skills if s.title() not in matched_skills]
+        missing_tech, missing_soft = DocumentParser.classify_skills(missing_skills)
+
+        pros = []
+        cons = []
+        questions = []
+        
+        # Format Pros based on THIS candidate's actual CV
+        if cand_tech:
+            pros.append(f"Technical Skills yang dimiliki: {', '.join(cand_tech)}.")
+        elif matched_tech:
+            pros.append(f"Technical Skills yang dimiliki: {', '.join(matched_tech)}.")
+
+        if cand_soft:
+            pros.append(f"Soft Skills yang dimiliki: {', '.join(cand_soft)}.")
+        elif matched_soft:
+            pros.append(f"Soft Skills yang dimiliki: {', '.join(matched_soft)}.")
+
+        # Duration & Education
+        if total_exp > 0:
+            if total_exp >= min_exp:
+                pros.append(f"Memiliki total durasi pengalaman kerja {total_exp} tahun (memenuhi target >={min_exp} tahun).")
+            else:
+                pros.append(f"Memiliki total durasi pengalaman kerja {total_exp} tahun.")
+
+        edu = cv.get("education", {})
+        if isinstance(edu, dict) and edu.get("degree"):
+            pros.append(f"Latar Belakang Pendidikan: {edu.get('degree')}.")
+
+        # Format Cons (Gaps against Job Vacancy)
+        if knockout_reasons:
+            cons.extend(knockout_reasons)
+            
+        if missing_tech:
+            cons.append(f"Belum mencantumkan Technical Skills: {', '.join(missing_tech)}.")
+        if missing_soft:
+            cons.append(f"Belum mencantumkan Soft Skills: {', '.join(missing_soft)}.")
+            
+        role_title = job.get("title", "pekerjaan ini")
+        target_skill_for_q = (cand_tech or matched_tech or ["keahlian teknis"])[0]
+        missing_skill_for_q = (missing_tech or missing_skills or ["keahlian terkait"])[0]
+
+        questions.append(f"Bisakah Anda menceritakan penerapan praktis keahlian {target_skill_for_q} dalam proyek atau portofolio Anda sebelumnya?")
+        questions.append(f"Bagaimana strategi Anda untuk mengadaptasi keahlian {missing_skill_for_q} dalam waktu singkat jika dipercaya mengemban posisi {role_title}?")
+        questions.append(f"Ceritakan tantangan teknis atau manajerial terbesar yang pernah Anda hadapi dalam proyek sebelumnya dan bagaimana pendekatan solusi Anda.")
+
+        return pros, cons, questions

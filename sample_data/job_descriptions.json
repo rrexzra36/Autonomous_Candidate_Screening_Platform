@@ -2,6 +2,7 @@
   {
     "job_id": "JOB-MFG-001",
     "title": "Quality Control Engineer",
+    "major": "Teknik Mesin / Industri / Kimia",
     "department": "Quality Assurance",
     "hard_requirements": {
       "min_education": "S1 Teknik Mesin / Industri / Kimia",
@@ -21,6 +22,7 @@
   {
     "job_id": "JOB-MFG-002",
     "title": "Production Supervisor",
+    "major": "Teknik Industri / Elektro / Mesin",
     "department": "Manufacturing Production",
     "hard_requirements": {
       "min_education": "D3/S1 Teknik Industri / Elektro / Mesin",
