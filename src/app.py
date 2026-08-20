@@ -448,7 +448,7 @@ if candidates_to_process and active_job:
                     st.markdown("##### Informasi Kandidat")
                     col_info1, col_info2 = st.columns(2)
                     with col_info1:
-                        st.markdown(f"- **Nama:** {p_info.get('full_name', display_name)}")
+                        st.markdown(f"- **Nama:** {p_info.get('full_name', real_name)}")
                         st.markdown(f"- **Email:** {p_info.get('email', '-')}")
                         st.markdown(f"- **Telepon:** {p_info.get('phone', '-')}")
                     with col_info2:
