@@ -179,8 +179,6 @@ else:
 
 st.sidebar.markdown("---")
 
-min_score = st.sidebar.slider("Minimum Shortlist Score Threshold (%):", 0, 100, 60, 5)
-
 # Effective API connection parameters
 is_ai_connected = st.session_state.get("api_connected", False) and bool(active_api_key)
 effective_api_key = active_api_key if is_ai_connected else ""
@@ -527,8 +525,18 @@ else:
     with st.container(border=True):
         st.markdown(f"Ready to evaluate **{len(candidates_to_process)} candidate CVs** for **{active_job['title']}**.")
         
-        st.markdown("**⚙️ Scoring Weights Configuration:**")
-        col_w1, col_w2, col_w3 = st.columns(3)
+        st.markdown("**⚙️ Scoring Weights & Criteria Configuration:**")
+        col_w0, col_w1, col_w2, col_w3 = st.columns(4)
+        with col_w0:
+            threshold_score = st.number_input(
+                "📊 Threshold (%)",
+                min_value=0,
+                max_value=100,
+                value=60,
+                step=5,
+                key="score_threshold_input",
+                help="Minimum overall score percentage for a candidate to qualify for the shortlist."
+            )
         with col_w1:
             w_skill = st.number_input(
                 "🎯 Skill Match (%)",
@@ -551,7 +559,7 @@ else:
             )
         with col_w3:
             w_edu = st.number_input(
-                "🎓 Education Background (%)",
+                "🎓 Education (%)",
                 min_value=0,
                 max_value=100,
                 value=20,
@@ -567,13 +575,15 @@ else:
             "education": float(w_edu)
         }
 
-        if total_weight != 100:
-            st.warning(f"⚠️ Total scoring weight must equal 100% (Current Total: **{total_weight}%**).")
-
-        is_disabled = (total_weight != 100)
-        if st.button("🚀 Start AI Analysis", type="primary", use_container_width=True, disabled=is_disabled):
-            st.session_state["analysis_triggered"] = True
-            st.rerun()
+        col_warn, col_btn = st.columns([3, 1], vertical_alignment="center")
+        with col_warn:
+            if total_weight != 100:
+                st.warning(f"⚠️ Total scoring weight must equal 100% (Current Total: **{total_weight}%**).")
+        with col_btn:
+            is_disabled = (total_weight != 100)
+            if st.button("🚀 Start AI Analysis", type="primary", use_container_width=True, disabled=is_disabled):
+                st.session_state["analysis_triggered"] = True
+                st.rerun()
 
     if st.session_state.get("analysis_triggered"):
         matcher = CandidateMatcherEngine(
@@ -590,12 +600,12 @@ else:
             cv_to_process = BlindCVAnonymizer.anonymize_cv(raw_cv, enabled_fields=active_masked_fields) if enable_blind_cv else raw_cv
             
             # Cache Key for scoring evaluation to prevent redundant API hits on UI clicks
-            eval_cache_key = f"{raw_cv.get('cv_id')}_{active_job.get('job_id')}_{enable_blind_cv}_{'_'.join(sorted(active_masked_fields))}_{w_skill}_{w_exp}_{w_edu}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+            eval_cache_key = f"{raw_cv.get('cv_id')}_{active_job.get('job_id')}_{enable_blind_cv}_{'_'.join(sorted(active_masked_fields))}_{w_skill}_{w_exp}_{w_edu}_{threshold_score}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
             
             if eval_cache_key in st.session_state["eval_results_store"]:
                 eval_res = st.session_state["eval_results_store"][eval_cache_key]
             else:
-                eval_res = matcher.evaluate_candidate(cv_to_process, active_job, weights=custom_weights)
+                eval_res = matcher.evaluate_candidate(cv_to_process, active_job, weights=custom_weights, threshold=float(threshold_score))
                 eval_res["raw_cv"] = raw_cv
                 eval_res["anonymized_cv"] = cv_to_process
                 st.session_state["eval_results_store"][eval_cache_key] = eval_res
@@ -610,7 +620,7 @@ else:
         with tab1:
             st.subheader(f"Candidate Evaluation Results for: {active_job['title']}")
             
-            filtered_list = [c for c in evaluated_results if c["overall_score"] >= min_score]
+            filtered_list = [c for c in evaluated_results if c["overall_score"] >= threshold_score]
             
             m1, m2, m3 = st.columns(3)
             with m1:

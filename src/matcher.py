@@ -36,11 +36,12 @@ class CandidateMatcherEngine:
         self,
         anonymized_cv: Dict[str, Any],
         job_desc: Dict[str, Any],
-        weights: Dict[str, float] = None
+        weights: Dict[str, float] = None,
+        threshold: float = 60.0
     ) -> Dict[str, Any]:
         """
         Runs 3-Tier evaluation flow on an anonymized candidate CV against job description
-        with customizable scoring weights.
+        with customizable scoring weights and pass threshold.
         """
         cv_id = anonymized_cv.get("cv_id", "UNKNOWN")
         candidate_alias = anonymized_cv.get("personal_info", {}).get("candidate_alias", "CANDIDATE-X")
@@ -97,7 +98,7 @@ class CandidateMatcherEngine:
             anonymized_cv, job_desc, matched_skills, jd_skills, total_exp, min_exp, knockout_reasons
         )
 
-        status = "Pass" if (overall_score >= 70 and hard_filter_passed) else ("Considered" if overall_score >= 50 else "Rejected")
+        status = "Pass" if (overall_score >= threshold and hard_filter_passed) else ("Considered" if overall_score >= max(threshold - 15, 35) else "Rejected")
 
         return {
             "cv_id": cv_id,
