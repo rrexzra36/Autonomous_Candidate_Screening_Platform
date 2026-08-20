@@ -1,17 +1,40 @@
 """
 Multi-Tier Candidate Matching & Scoring Engine
 - Layer 1: Hard Filter (Knockout Criteria)
-- Layer 2: Skill & Semantic Vector Similarity
+- Layer 2: Skill & Semantic Vector Embedding Similarity (Cosine Similarity on Dense Embeddings)
 - Layer 3: Explainable AI (XAI) Reasoning & Justification Generator (Pros & Cons)
-- Multi-LLM Support: Google Gemini (gemini-1.5-flash, gemini-2.5-flash, gemini-1.5-pro) & OpenAI (gpt-4o-mini, gpt-4o, gpt-4-turbo)
+- Multi-LLM Support: Google Gemini (gemini-3-flash-preview, gemini-3.1-flash-lite, etc.) & OpenAI (gpt-4o-mini, gpt-4o)
+- Embedding Models: Google text-embedding-004 / OpenAI text-embedding-3-small with Offline Cosine fallback
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import json
 import os
+import math
+import re
+from collections import Counter
 import warnings
 
 warnings.filterwarnings("ignore", category=FutureWarning)
+
+def calculate_cosine_similarity(v1: List[float], v2: List[float]) -> float:
+    """Calculates cosine similarity between two numeric vectors [0.0 - 1.0]."""
+    if not v1 or not v2 or len(v1) != len(v2):
+        return 0.0
+    dot = sum(a * b for a, b in zip(v1, v2))
+    norm_a = math.sqrt(sum(a * a for a in v1))
+    norm_b = math.sqrt(sum(b * b for b in v2))
+    if norm_a == 0.0 or norm_b == 0.0:
+        return 0.0
+    return max(0.0, min(1.0, dot / (norm_a * norm_b)))
+
+def compute_fallback_sparse_vector(text: str, vocabulary: Dict[str, int]) -> List[float]:
+    """Generates a term frequency vector against a shared vocabulary."""
+    tokens = re.findall(r'\b[a-zA-Z0-9_+#.-]{2,}\b', text.lower())
+    counts = Counter(tokens)
+    vec = [counts.get(word, 0) for word in vocabulary]
+    norm = math.sqrt(sum(x * x for x in vec))
+    return [x / norm for x in vec] if norm > 0 else [0.0] * len(vocabulary)
 
 class CandidateMatcherEngine:
     def __init__(
@@ -32,6 +55,57 @@ class CandidateMatcherEngine:
         else:
             self.api_key = api_key or gemini_api_key or kwargs.get("gemini_api_key", "")
 
+    def _compute_embedding(self, text: str) -> Optional[List[float]]:
+        """
+        Generates dense vector embeddings using Google Gemini (text-embedding-004) or OpenAI (text-embedding-3-small).
+        Returns None if offline or if API is unreachable.
+        """
+        if not self.api_key or not self.api_key.strip() or not text or not text.strip():
+            return None
+
+        clean_text = text.strip()[:8000]
+
+        # 1. OpenAI Embedding
+        if self.provider == "openai":
+            try:
+                import openai
+                client = openai.OpenAI(api_key=self.api_key.strip())
+                response = client.embeddings.create(
+                    model="text-embedding-3-small",
+                    input=clean_text
+                )
+                return response.data[0].embedding
+            except Exception:
+                return None
+
+        # 2. Google Gemini Embedding
+        else:
+            try:
+                from google import genai
+                client = genai.Client(api_key=self.api_key.strip())
+                response = client.models.embed_content(
+                    model="text-embedding-004",
+                    contents=clean_text
+                )
+                if hasattr(response, "embedding") and hasattr(response.embedding, "values"):
+                    return list(response.embedding.values)
+                elif hasattr(response, "embeddings") and response.embeddings:
+                    return list(response.embeddings[0].values)
+            except Exception:
+                try:
+                    import google.generativeai as legacy_genai
+                    legacy_genai.configure(api_key=self.api_key.strip())
+                    res = legacy_genai.embed_content(
+                        model="models/text-embedding-004",
+                        content=clean_text
+                    )
+                    if "embedding" in res:
+                        return list(res["embedding"])
+                except Exception:
+                    return None
+
+        return None
+
     def evaluate_candidate(
         self,
         anonymized_cv: Dict[str, Any],
@@ -41,7 +115,7 @@ class CandidateMatcherEngine:
     ) -> Dict[str, Any]:
         """
         Runs 3-Tier evaluation flow on an anonymized candidate CV against job description
-        with customizable scoring weights and pass threshold.
+        with customizable scoring weights, semantic vector embeddings, and pass threshold.
         """
         cv_id = anonymized_cv.get("cv_id", "UNKNOWN")
         candidate_alias = anonymized_cv.get("personal_info", {}).get("candidate_alias", "CANDIDATE-X")
@@ -68,16 +142,40 @@ class CandidateMatcherEngine:
                 hard_filter_passed = False
                 knockout_reasons.append(f"Missing mandatory certification: '{cert}'.")
 
-        # --- TIER 2: Skill & Semantic Matching ---
+        # --- TIER 2: Skill & Semantic Vector Embedding Matching ---
         jd_skills = list(dict.fromkeys([s.lower() for s in (job_desc.get("technical_skills", []) + job_desc.get("soft_skills", []) + job_desc.get("key_skills", []))]))
         cand_skills = list(dict.fromkeys([s.lower() for s in (anonymized_cv.get("technical_skills", []) + anonymized_cv.get("soft_skills", []) + anonymized_cv.get("skills", []))]))
         
+        # 1. Lexical Substring & Exact Match
         matched_skills = []
         for s in jd_skills:
             if any(s in cs or cs in s for cs in cand_skills):
                 matched_skills.append(s.title())
                 
-        skill_score = (len(matched_skills) / max(len(jd_skills), 1)) * 100
+        lexical_skill_score = (len(matched_skills) / max(len(jd_skills), 1)) * 100
+
+        # 2. Dense Semantic Vector Similarity Analysis
+        jd_profile_text = f"{job_desc.get('title', '')}. Key Requirements: {', '.join(jd_skills)}. Responsibilities: {job_desc.get('responsibilities', '')} {job_desc.get('description', '')}"
+        cv_profile_text = f"Skills: {', '.join(cand_skills)}. " + " ".join([f"{e.get('role', '')} at {e.get('company', '')}: {e.get('description', '')}" for e in anonymized_cv.get("work_experience", [])])
+        
+        jd_vec = self._compute_embedding(jd_profile_text)
+        cv_vec = self._compute_embedding(cv_profile_text)
+
+        if jd_vec and cv_vec:
+            # Dense Vector Cosine Similarity
+            semantic_similarity = calculate_cosine_similarity(jd_vec, cv_vec) * 100.0
+            # Scale semantic similarity curve gracefully (typical semantic range is ~0.4 - 0.9)
+            semantic_score = min(100.0, max(0.0, (semantic_similarity - 35.0) / 0.55))
+        else:
+            # Sparse Term Frequency Cosine Similarity (Offline Fallback)
+            vocab = {word: idx for idx, word in enumerate(set(re.findall(r'\b[a-zA-Z0-9_+#.-]{2,}\b', (jd_profile_text + " " + cv_profile_text).lower())))}
+            v_jd = compute_fallback_sparse_vector(jd_profile_text, vocab)
+            v_cv = compute_fallback_sparse_vector(cv_profile_text, vocab)
+            sparse_sim = calculate_cosine_similarity(v_jd, v_cv) * 100.0
+            semantic_score = min(100.0, max(0.0, sparse_sim * 1.5))
+
+        # Composite Skill & Semantic Score: 50% Direct Skills + 50% Contextual Vector Alignment
+        skill_score = round(0.5 * lexical_skill_score + 0.5 * semantic_score, 1)
         exp_score = min((total_exp / max(min_exp, 1)) * 100, 100) if min_exp > 0 else 100
         education_score = 90.0
         
@@ -111,6 +209,7 @@ class CandidateMatcherEngine:
             "eval_source": eval_source,
             "score_breakdown": {
                 "skill_match": round(skill_score, 1),
+                "semantic_similarity": round(semantic_score, 1),
                 "experience_depth": round(exp_score, 1),
                 "education_tier": round(education_score, 1)
             },
