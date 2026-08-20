@@ -317,11 +317,11 @@ if candidates_to_process and active_job:
                 col_a.markdown(f"📌 **Status Rekomendasi:** `{item['status']}`")
                 col_b.markdown(f"🎯 **Kesesuaian Skill:** `{item['score_breakdown']['skill_match']}%`")
                 
-                with st.expander("🔍 Lihat Analisis Transparan AI (Pros & Cons) & Profil Lengkap"):
+                with st.expander("Review"):
                     active_profile = item["anonymized_cv"] if enable_blind_cv else item["raw_cv"]
                     p_info = active_profile.get("personal_info", {})
                     
-                    st.markdown("##### 👤 Informasi Kandidat")
+                    st.markdown("##### Informasi Kandidat")
                     col_info1, col_info2 = st.columns(2)
                     with col_info1:
                         st.markdown(f"- **Nama:** {p_info.get('full_name', display_name)}")
@@ -334,7 +334,7 @@ if candidates_to_process and active_job:
                         st.markdown(f"- **Gender:** {p_info.get('gender', '-')}")
                         st.markdown(f"- **Domisili:** {p_info.get('address', '-')}")
 
-                    st.markdown("##### 🎓 Riwayat Pendidikan")
+                    st.markdown("##### Riwayat Pendidikan")
                     edu_list = active_profile.get("education", [])
                     if isinstance(edu_list, list) and edu_list:
                         for edu in edu_list:
@@ -348,7 +348,7 @@ if candidates_to_process and active_job:
                     else:
                         st.markdown("- *Tidak tercantum data pendidikan.*")
 
-                    st.markdown("##### 💼 Pengalaman Kerja & Rekam Jejak")
+                    st.markdown("##### Pengalaman Kerja & Rekam Jejak")
                     exp_list = active_profile.get("work_experience", [])
                     if exp_list:
                         for exp in exp_list:
@@ -361,7 +361,7 @@ if candidates_to_process and active_job:
 
                     col_sk1, col_sk2 = st.columns(2)
                     with col_sk1:
-                        st.markdown("##### 🛠️ Keahlian Teknis (Technical Skills)")
+                        st.markdown("##### Keahlian Teknis (Technical Skills)")
                         tech_list = active_profile.get("technical_skills", [])
                         if tech_list:
                             for t in tech_list:
@@ -370,7 +370,7 @@ if candidates_to_process and active_job:
                             st.markdown("- *Tidak tercantum skill teknis khusus.*")
 
                     with col_sk2:
-                        st.markdown("##### 🤝 Keahlian Perilaku (Soft Skills)")
+                        st.markdown("##### Keahlian Perilaku (Soft Skills)")
                         soft_list = active_profile.get("soft_skills", [])
                         if soft_list:
                             for s in soft_list:
@@ -380,19 +380,19 @@ if candidates_to_process and active_job:
 
                     certs = active_profile.get("certifications", [])
                     if certs:
-                        st.markdown("##### 📜 Sertifikasi & Pencapaian")
+                        st.markdown("##### Sertifikasi & Pencapaian")
                         for c in certs:
                             st.markdown(f"- {c}")
 
                     st.markdown("---")
-                    st.markdown("##### 🧠 Analisis Kesesuaian AI (Pros & Cons)")
+                    st.markdown("##### Analisis Kesesuaian AI (Pros & Cons)")
                     col_pro, col_con = st.columns(2)
                     with col_pro:
-                        st.markdown("**✅ Keunggulan Profil (Pros):**")
+                        st.markdown("**Keunggulan Profil (Pros):**")
                         for pro in item["justification"]["pros"]:
                             st.markdown(f"- {pro}")
                     with col_con:
-                        st.markdown("**⚠️ Area Pertimbangan / Gap (Cons):**")
+                        st.markdown("**Area Pertimbangan / Gap (Cons):**")
                         for con in item["justification"]["cons"]:
                             st.markdown(f"- {con}")
 
