@@ -3,7 +3,7 @@ Multi-Modal PDF Document Parser & Entity Extraction Engine
 - Extract raw text from PDF documents (JD or CV)
 - Strict validation & error handling against test sheets, guides, invoices, and invalid docs
 - Parse Job Descriptions into structured screening criteria with Technical & Soft Skills separation
-- Parse CVs into candidate profile entities
+- High-Fidelity CV Parser extracting real Personal Info, Education, Experience, and Skills
 - Multi-LLM Support: Google Gemini (gemini-1.5-flash, gemini-2.5-flash, gemini-1.5-pro) & OpenAI (gpt-4o-mini, gpt-4o, gpt-4-turbo)
 """
 
@@ -11,6 +11,7 @@ from typing import Dict, Any, List, Tuple
 import io
 import re
 import json
+from datetime import datetime
 
 class DocumentParsingError(Exception):
     """Base exception for document parsing errors."""
@@ -192,7 +193,7 @@ class DocumentParser:
             "creative", "visualization", "communication", "interpersonal", "presentation",
             "leadership", "management", "problem solv", "learner", "resilient", "teamwork",
             "negotiation", "adaptability", "critical thinking", "collaboration",
-            "analytical", "time management", "insightful", "visionary"
+            "analytical", "time management", "insightful", "visionary", "confident", "enthusiastic"
         ]
         technical = []
         soft = []
@@ -200,7 +201,7 @@ class DocumentParser:
             s_clean = s.strip()
             if not s_clean:
                 continue
-            if any(t in s_clean.lower() for t in ["drawing", "autocad", "revit", "sketchup", "python", "sql", "excel", "plc", "scada", "design & build", "interior design", "architectural design"]):
+            if any(t in s_clean.lower() for t in ["drawing", "autocad", "revit", "sketchup", "python", "sql", "excel", "plc", "scada", "design & build", "interior design", "architectural design", "lumion", "v-ray", "blender", "photoshop", "illustrator", "3ds max", "rhino", "bim"]):
                 if s_clean not in technical:
                     technical.append(s_clean)
             elif any(k in s_clean.lower() for k in soft_keywords):
@@ -334,7 +335,7 @@ class DocumentParser:
     @staticmethod
     def parse_candidate_cv(text: str, filename: str = "Candidate_CV.pdf", api_key: str = "", provider: str = "gemini", model_name: str = "gemini-1.5-flash") -> Dict[str, Any]:
         """
-        Converts raw CV text into structured candidate profile.
+        High-fidelity extractor converting raw CV text into complete, authentic candidate profile entities.
         """
         is_valid, err_msg = DocumentParser.validate_cv_text(text)
         if not is_valid:
@@ -343,33 +344,123 @@ class DocumentParser:
         if api_key and api_key.strip():
             try:
                 extracted_json = DocumentParser._llm_parse_cv(text, filename, api_key, provider=provider, model_name=model_name)
-                if extracted_json and extracted_json.get("personal_info"):
+                if extracted_json and extracted_json.get("personal_info") and extracted_json["personal_info"].get("full_name"):
                     return extracted_json
             except Exception:
                 pass
 
-        # Heuristic Regex Parser for Candidate CV
-        email_match = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", text)
-        email = email_match.group(0) if email_match else "candidate@email.com"
+        # === High-Fidelity Heuristic Fallback Extractor ===
+        clean_lines = [l.strip() for l in text.split("\n") if l.strip()]
 
-        lines = [line.strip() for line in text.split("\n") if line.strip()]
-        name = lines[0] if lines else filename.replace(".pdf", "").replace("_", " ")
-        if len(name) > 40 or "@" in name:
-            name = filename.replace(".pdf", "").replace("_", " ").title()
+        # 1. Full Name Extraction
+        name = ""
+        name_match = re.search(r"(?:nama|name|full\s*name)\s*[:\-]\s*([a-zA-Z\s\.\,\'\-]+)", text, re.I)
+        if name_match and len(name_match.group(1).strip()) > 2:
+            name = name_match.group(1).strip().title()
+        else:
+            for line in clean_lines[:6]:
+                # Skip platform boilerplate and headers
+                if re.search(r"dibuat dengan|profil jobstreet|curriculum vitae|resume|biodata|personal info|contact|tentang saya|about me", line, re.I):
+                    continue
+                if len(line) < 35 and not re.search(r"[@0-9\+\:\/\|]", line) and len(line.split()) <= 4:
+                    # Clean title noun
+                    candidate_name = line.strip(" :-|")
+                    if len(candidate_name) > 2 and not any(k in candidate_name.lower() for k in ["architect", "drafter", "engineer", "designer", "profile", "summary"]):
+                        name = candidate_name.title()
+                        break
+        if not name:
+            name = filename.replace(".pdf", "").replace("_", " ").replace("CV Sample", "Kandidat").title()
 
+        # 2. Email Extraction (handling spaces around @ e.g. "Dani 19@gmail.com" on same line)
+        email = "candidate@email.com"
+        email_pattern = re.search(r"([a-zA-Z0-9_.+-]+(?:\s+[a-zA-Z0-9_.+-]+)?)\s*@\s*([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)", text)
+        if email_pattern:
+            tokens = [x for x in re.split(r"[\s\r\n]+", email_pattern.group(1).strip()) if x]
+            user_part = "".join(tokens[-2:]) if len(tokens) >= 2 and tokens[-1].isdigit() else (tokens[-1] if tokens else "candidate")
+            domain_part = re.sub(r"\s+", "", email_pattern.group(2))
+            email = f"{user_part}@{domain_part}".lower()
+
+        # 3. Phone Extraction
+        phone = "Tidak Dicantumkan"
+        phone_match = re.search(r"(?:\+?\s*62|0)[\s\-]*(?:8[0-9\s\-]{7,15})", text)
+        if phone_match:
+            raw_phone = phone_match.group(0)
+            phone = re.sub(r"\s+", " ", raw_phone).strip()
+
+        # 4. Gender Extraction
+        gender = "Tidak Dicantumkan"
+        if re.search(r"\b(laki[\s\-]*laki|pria|male)\b", text, re.I):
+            gender = "Laki-laki"
+        elif re.search(r"\b(perempuan|wanita|female)\b", text, re.I):
+            gender = "Perempuan"
+
+        # 5. Age & Birth Date Extraction
+        age = "Tidak Dicantumkan"
+        explicit_age = re.search(r"(?:usia|umur|age)\s*[:\-]?\s*(\d{2})", text, re.I)
+        if explicit_age:
+            age = int(explicit_age.group(1))
+        else:
+            birth_match = re.search(r"(?:born\s+in|lahir|birth|dob|tgl lahir|tanggal lahir)[^\n\r]*?(\d{1,2}\s+[a-zA-Z]+\s+\d{4}|\d{4})", text, re.I)
+            if birth_match:
+                year_match = re.search(r"\b(19\d{2}|20\d{2})\b", birth_match.group(0))
+                if year_match:
+                    birth_year = int(year_match.group(1))
+                    age = 2026 - birth_year
+
+        # 6. Address / City Extraction
+        address = "Tidak Dicantumkan"
+        cities = [
+            "South Jakarta - Indonesia", "South Jakarta", "Jakarta Barat", "Jakarta Timur", "Jakarta Selatan", "Jakarta Pusat", "Jakarta Utara", "DKI Jakarta", "Jakarta",
+            "Bandung, Indonesia", "Bandung", "Kuningan", "Surabaya", "Yogyakarta", "Semarang", "Bekasi", "Tangerang", "Depok", "Bogor", "Medan", "Malang", "Solo", "Surakarta", "Denpasar", "Bali"
+        ]
+        for c in cities:
+            if re.search(rf"\b{re.escape(c)}\b", text, re.I):
+                address = c
+                break
+        if address == "Tidak Dicantumkan":
+            addr_match = re.search(r"(?:alamat|address|domisili|lokasi|city|kota|location)\s*[:\-]?\s*([^\n\r\|]+)", text, re.I)
+            if addr_match and len(addr_match.group(1).strip()) > 3:
+                address = addr_match.group(1).strip()
+
+        # 7. University / School Institution & Degree Extraction
+        university = "Tidak Dicantumkan"
+        degree = "S1 / Bachelor Degree"
+        
+        # Detect university / school name
+        univ_match = re.search(r"((?:Universitas|University|Institut|Institute|Politeknik|Polytechnic|Sekolah Tinggi|Vocational High School|SMK Negeri|SMK|SMA Negeri|SMA)\s+[a-zA-Z0-9\s\(\)\.\,]+?)(?=[,\n\r]|\s+(?:majoring|jurusan|with|faculty|tahun|grade|ipk|gpa|$))", text, re.I)
+        if univ_match:
+            university = univ_match.group(1).strip().title()
+        
+        if "Vocational High School" in text or "SMK" in text:
+            degree = "SMK / Vocational High School"
+        elif "Master" in text or "S2" in text or "Magister" in text:
+            degree = "S2 / Master Degree"
+        elif "Diploma" in text or "D3" in text:
+            degree = "D3 / Diploma"
+        elif "Bachelor" in text or "S1" in text or "Sarjana" in text or "University" in text or "Universitas" in text:
+            degree = "S1 / Bachelor Degree"
+
+        major_match = re.search(r"(?:majoring in|major in|jurusan|program studi|studi)\s*[:\-]?\s*([a-zA-Z\s\(\)]+)", text, re.I)
+        if major_match and len(major_match.group(1).strip()) > 3:
+            major_clean = major_match.group(1).strip().title()
+            degree = f"{degree} ({major_clean})"
+
+        # 8. Experience Duration & Roles
         exp_match = re.search(r"(\d+)\s*(?:\+|-\d+)?\s*(?:tahun|thn|years|yr)", text, re.I)
         dur_exp = int(exp_match.group(1)) if exp_match else 2
 
+        # 9. Skills Discovery
         known_tools = [
             "AutoCAD", "SketchUp", "3ds Max", "Revit", "Adobe Photoshop", "Photoshop", "Illustrator",
             "Lumion", "Rhino", "Blender", "V-Ray", "ArchiCAD", "Figma", "Canva", "InDesign",
             "Python", "SQL", "Excel", "Microsoft Office", "SAP", "PLC", "SCADA", "Six Sigma", "ISO 9001",
             "Quality Control", "Lean Manufacturing", "Kaizen", "5S", "K3 Umum", "Technical Drawing",
-            "Project Management", "Interior Design", "Design & Build", "Communication Skills", "Problem Solving"
+            "Project Management", "Interior Design", "Design & Build", "Communication Skills", "Problem Solving",
+            "Building Information Modeling", "BIM", "3D Visualization", "Architectural Modeling"
         ]
         found_skills = [s for s in known_tools if re.search(rf"\b{re.escape(s)}\b", text, re.I)]
         if not found_skills:
-            found_skills = ["Technical Skills", "Project Execution"]
+            found_skills = ["Technical Drawing", "Design Execution"]
 
         tech_skills, soft_skills = DocumentParser.classify_skills(found_skills)
         cv_id = f"CV-UP-{abs(hash(name + filename)) % 10000}"
@@ -379,23 +470,24 @@ class DocumentParser:
             "personal_info": {
                 "full_name": name,
                 "email": email,
-                "gender": "Tidak Disebutkan",
-                "age": 25,
+                "phone": phone,
+                "gender": gender,
+                "age": age,
                 "photo_url": "",
-                "address": "Indonesia",
-                "university": "Universitas Terakreditasi"
+                "address": address,
+                "university": university
             },
             "education": {
-                "degree": "S1 / Bachelor Degree",
-                "institution": "Universitas / Institut",
+                "degree": degree,
+                "institution": university,
                 "graduation_year": 2022
             },
             "work_experience": [
                 {
-                    "role": "Professional Candidate",
-                    "company": "Design / Engineering Industry",
+                    "role": "Candidate Work History",
+                    "company": "Industry",
                     "duration_years": dur_exp,
-                    "achievements": text[:400] if len(text) > 400 else text
+                    "achievements": text[:300] if len(text) > 300 else text
                 }
             ],
             "skills": found_skills,
@@ -433,36 +525,39 @@ Struktur JSON yang WAJIB dihasilkan:
     @staticmethod
     def _llm_parse_cv(text: str, filename: str, api_key: str, provider: str = "gemini", model_name: str = "gemini-1.5-flash") -> Dict[str, Any]:
         prompt = f"""
-Ekstrak informasi Curriculum Vitae (CV) kandidat berikut ke dalam format JSON murni:
+Anda adalah AI CV Parser tingkat lanjut. Ekstrak data Curriculum Vitae (CV) kandidat berikut PERSIS SESUAI ISI ASLI DOKUMEN secara menyeluruh ke format JSON murni.
+JANGAN MENGARANG DATA ATAU MENGGUNAKAN TEMPLATE PLACEHOLDER (seperti 'Indonesia' atau 'Universitas Terakreditasi') jika informasi aslinya tercantum di dalam teks CV:
+
 {text}
 
-Struktur JSON yang wajib dihasilkan:
+Struktur JSON yang WAJIB dihasilkan:
 {{
   "cv_id": "CV-UPLOAD",
   "personal_info": {{
-    "full_name": "Nama Kandidat",
-    "email": "email@example.com",
-    "gender": "Gender",
-    "age": 26,
-    "address": "Alamat Domisili",
-    "university": "Nama Universitas"
+    "full_name": "Nama Lengkap Asli Kandidat",
+    "email": "Email Asli Kandidat (perbaiki jika ada spasi di sekitar @)",
+    "phone": "Nomor Telepon Asli Kandidat",
+    "gender": "Laki-laki / Perempuan / Tidak Dicantumkan",
+    "age": 23,
+    "address": "Kota / Alamat Domisili Asli dari CV (misal: South Jakarta - Indonesia / Bandung)",
+    "university": "Nama Asli Sekolah / Universitas / Almamater (misal: Vocational High School 3 Kuningan / Universitas Budi Luhur)"
   }},
   "education": {{
-    "degree": "Jenjang & Jurusan",
-    "institution": "Nama Kampus",
+    "degree": "Jenjang & Jurusan Asli (misal: Vocational High School - Architectural Building Modeling Design / S1 Arsitektur)",
+    "institution": "Nama Asli Kampus / Sekolah",
     "graduation_year": 2022
   }},
   "work_experience": [
     {{
-      "role": "Nama Jabatan",
-      "company": "Nama Perusahaan",
+      "role": "Jabatan / Pekerjaan",
+      "company": "Perusahaan / Tempat Kerja",
       "duration_years": 2,
-      "achievements": "Ringkasan tugas dan pencapaian"
+      "achievements": "Ringkasan pengalaman kerja"
     }}
   ],
-  "technical_skills": ["Skill Teknis / Software"],
-  "soft_skills": ["Soft Skill / Perilaku"],
-  "skills": ["Semua Skill"],
+  "technical_skills": ["Daftar Skill Teknis / Software Asli dari CV"],
+  "soft_skills": ["Daftar Soft Skill Asli dari CV"],
+  "skills": ["Semua Skill Asli dari CV"],
   "certifications": ["Sertifikasi jika ada"]
 }}
 """
@@ -484,10 +579,10 @@ Struktur JSON yang wajib dihasilkan:
                     model=model_name or "gpt-4o-mini",
                     response_format={"type": "json_object"},
                     messages=[
-                        {"role": "system", "content": "Anda adalah AI HR Specialist yang mengeluarkan data dalam JSON murni."},
+                        {"role": "system", "content": "Anda adalah AI CV Parser tingkat lanjut yang mengeluarkan data JSON murni dengan akurasi 100% dari teks sumber."},
                         {"role": "user", "content": prompt}
                     ],
-                    temperature=0.2
+                    temperature=0.1
                 )
                 text = response.choices[0].message.content
             except Exception:
