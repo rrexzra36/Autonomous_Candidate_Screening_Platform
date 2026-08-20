@@ -474,11 +474,11 @@ candidates_to_process = []
 
 if raw_cv_items:
     invalid_cv_count = 0
-    with st.spinner(f"🤖 Validating and processing candidate CVs..."):
+    with st.spinner(f"🤖 Validating and extracting candidate CVs..."):
         for item in raw_cv_items:
             fname = item["name"]
             file_bytes = item["bytes"]
-            cv_cache_key = f"{fname}_{len(file_bytes)}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+            cv_cache_key = f"{fname}_{len(file_bytes)}"
             
             # Check if CV has already been parsed in session memory
             if cv_cache_key in st.session_state["parsed_cv_store"]:
@@ -490,10 +490,7 @@ if raw_cv_items:
                 raw_text = DocumentParser.extract_text_from_pdf(file_bytes)
                 parsed_cv = DocumentParser.parse_candidate_cv(
                     raw_text,
-                    filename=fname,
-                    api_key=effective_api_key,
-                    provider=selected_provider,
-                    model_name=effective_model
+                    filename=fname
                 )
                 st.session_state["parsed_cv_store"][cv_cache_key] = parsed_cv
                 candidates_to_process.append(parsed_cv)
@@ -529,8 +526,9 @@ elif not candidates_to_process:
 else:
     with st.container(border=True):
         st.markdown(f"Ready to evaluate **{len(candidates_to_process)} candidate CVs** for **{active_job['title']}**.")
+        st.markdown("---")
         
-        st.markdown("##### ⚙️ Scoring Weights Configuration")
+        st.markdown("**⚙️ Scoring Weights Configuration:**")
         col_w1, col_w2, col_w3 = st.columns(3)
         with col_w1:
             w_skill = st.number_input(
@@ -540,7 +538,7 @@ else:
                 value=50,
                 step=5,
                 key="weight_skill",
-                help="Weight percentage for candidate skill match against job requirements."
+                help="Weight percentage for candidate technical and soft skills match."
             )
         with col_w2:
             w_exp = st.number_input(
@@ -550,7 +548,7 @@ else:
                 value=30,
                 step=5,
                 key="weight_exp",
-                help="Weight percentage for total work experience duration and depth."
+                help="Weight percentage for work experience duration and relevant industry track record."
             )
         with col_w3:
             w_edu = st.number_input(
@@ -560,7 +558,7 @@ else:
                 value=20,
                 step=5,
                 key="weight_edu",
-                help="Weight percentage for formal academic degree and credentials."
+                help="Weight percentage for formal degree and academic background."
             )
 
         total_weight = w_skill + w_exp + w_edu
@@ -570,17 +568,13 @@ else:
             "education": float(w_edu)
         }
 
-        col_st_status, col_st_btn = st.columns([3, 1], vertical_alignment="center")
-        with col_st_status:
-            if total_weight == 100:
-                st.caption(f"✅ Total Weight: **{total_weight}%** (Valid Configuration)")
-            else:
-                st.error(f"⚠️ Total Weight: **{total_weight}%** (Must equal 100% to proceed)")
-        with col_st_btn:
-            is_disabled = (total_weight != 100)
-            if st.button("🚀 Start AI Analysis", type="primary", use_container_width=True, disabled=is_disabled):
-                st.session_state["analysis_triggered"] = True
-                st.rerun()
+        if total_weight != 100:
+            st.warning(f"⚠️ Total scoring weight must equal 100% (Current Total: **{total_weight}%**).")
+
+        is_disabled = (total_weight != 100)
+        if st.button("🚀 Start AI Analysis", type="primary", use_container_width=True, disabled=is_disabled):
+            st.session_state["analysis_triggered"] = True
+            st.rerun()
 
     if st.session_state.get("analysis_triggered"):
         matcher = CandidateMatcherEngine(
