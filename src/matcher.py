@@ -2,7 +2,7 @@
 Multi-Tier Candidate Matching & Scoring Engine
 - Layer 1: Hard Filter (Knockout Criteria)
 - Layer 2: Skill & Semantic Vector Similarity
-- Layer 3: Explainable AI (XAI) Reasoning & Justification Generator capturing full candidate profile
+- Layer 3: Explainable AI (XAI) Reasoning & Justification Generator (Pros & Cons)
 - Multi-LLM Support: Google Gemini (gemini-1.5-flash, gemini-2.5-flash, gemini-1.5-pro) & OpenAI (gpt-4o-mini, gpt-4o, gpt-4-turbo)
 """
 
@@ -79,7 +79,7 @@ class CandidateMatcherEngine:
             overall_score = round(overall_score * 0.5, 1)
 
         # --- TIER 3: LLM / XAI Reasoning ---
-        pros, cons, questions = self._generate_reasoning(
+        pros, cons = self._generate_reasoning(
             anonymized_cv, job_desc, matched_skills, jd_skills, total_exp, min_exp, knockout_reasons
         )
 
@@ -101,8 +101,7 @@ class CandidateMatcherEngine:
             "matched_skills": matched_skills,
             "justification": {
                 "pros": pros,
-                "cons": cons,
-                "interview_questions": questions
+                "cons": cons
             }
         }
 
@@ -113,7 +112,7 @@ class CandidateMatcherEngine:
         if self.api_key and self.api_key.strip():
             prompt = f"""
 Anda adalah Senior Technical Recruiter dan AI Hiring Specialist tingkat lanjut.
-Tugas Anda adalah menganalisis profil kandidat ini secara akurat dan menyajikan analisis Keunggulan (Pros) berdasarkan profil penuh CV kandidat, Catatan Gap (Cons), dan Pertanyaan Wawancara yang dipersonalisasi.
+Tugas Anda adalah menganalisis profil kandidat ini secara akurat dan menyajikan analisis Keunggulan (Pros) dan Catatan Gap (Cons) berdasarkan kecocokan terhadap lowongan pekerjaan.
 
 === DATA LOWONGAN PEKERJAAN (JOB VACANCY) ===
 Posisi: {job.get('title')}
@@ -136,8 +135,6 @@ Tanggung Jawab & Deskripsi:
 2. Pada "cons":
    - Cantumkan Technical Skills atau Soft Skills yang diminta lowongan tapi BELUM tercantum di CV kandidat ini.
    - Cantumkan kekurangan durasi pengalaman jika ada.
-3. Pada "interview_questions":
-   - Buat 3 pertanyaan wawancara mendalam yang spesifik menguji proyek/software riil yang pernah dikerjakan kandidat ini dan cara mereka mengisi gap kualifikasi lowongan {job.get('title')}.
 
 === FORMAT OUTPUT (WAJIB JSON MURNI) ===
 {{
@@ -150,11 +147,6 @@ Tanggung Jawab & Deskripsi:
     "Belum mencantumkan Technical Skills: [skill teknis yang diminta lowongan tapi belum ada di CV jika ada]",
     "Belum mencantumkan Soft Skills: [soft skill yang diminta lowongan tapi belum ada di CV jika ada]",
     "[Catatan gap pengalaman jika ada]"
-  ],
-  "interview_questions": [
-    "[Pertanyaan 1 mendalam tentang riwayat proyek/software yang pernah dikerjakan kandidat]",
-    "[Pertanyaan 2 strategi adaptasi terhadap gap kualifikasi lowongan]",
-    "[Pertanyaan 3 skenario tantangan nyata posisi ini]"
   ]
 }}
 """
@@ -226,9 +218,8 @@ Tanggung Jawab & Deskripsi:
                     data = json.loads(cleaned_text.strip())
                     pros = data.get("pros", [])
                     cons = data.get("cons", [])
-                    questions = data.get("interview_questions", [])
-                    if pros and questions:
-                        return pros, cons, questions
+                    if pros:
+                        return pros, cons
                 except Exception:
                     pass
 
@@ -249,7 +240,6 @@ Tanggung Jawab & Deskripsi:
 
         pros = []
         cons = []
-        questions = []
         
         # Format Pros based on THIS candidate's actual CV
         if cand_tech:
@@ -281,13 +271,5 @@ Tanggung Jawab & Deskripsi:
             cons.append(f"Belum mencantumkan Technical Skills: {', '.join(missing_tech)}.")
         if missing_soft:
             cons.append(f"Belum mencantumkan Soft Skills: {', '.join(missing_soft)}.")
-            
-        role_title = job.get("title", "pekerjaan ini")
-        target_skill_for_q = (cand_tech or matched_tech or ["keahlian teknis"])[0]
-        missing_skill_for_q = (missing_tech or missing_skills or ["keahlian terkait"])[0]
 
-        questions.append(f"Bisakah Anda menceritakan penerapan praktis keahlian {target_skill_for_q} dalam proyek atau portofolio Anda sebelumnya?")
-        questions.append(f"Bagaimana strategi Anda untuk mengadaptasi keahlian {missing_skill_for_q} dalam waktu singkat jika dipercaya mengemban posisi {role_title}?")
-        questions.append(f"Ceritakan tantangan teknis atau manajerial terbesar yang pernah Anda hadapi dalam proyek sebelumnya dan bagaimana pendekatan solusi Anda.")
-
-        return pros, cons, questions
+        return pros, cons

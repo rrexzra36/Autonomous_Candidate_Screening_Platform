@@ -293,7 +293,7 @@ if candidates_to_process and active_job:
                 col_a.markdown(f"📌 **Status Rekomendasi:** `{item['status']}`")
                 col_b.markdown(f"🎯 **Kesesuaian Skill:** `{item['score_breakdown']['skill_match']}%`")
                 
-                with st.expander("🔍 Lihat Analisis Transparan AI (Pros, Cons, & Rekomendasi Wawancara)"):
+                with st.expander("🔍 Lihat Analisis Transparan AI (Pros & Cons)"):
                     st.markdown("**✅ Keunggulan Kandidat (Pros):**")
                     for pro in item["justification"]["pros"]:
                         st.markdown(f"- {pro}")
@@ -301,10 +301,6 @@ if candidates_to_process and active_job:
                     st.markdown("**⚠️ Catatan / Potensi Gap (Cons):**")
                     for con in item["justification"]["cons"]:
                         st.markdown(f"- {con}")
-                    
-                    st.markdown("**❓ Rekomendasi Pertanyaan Wawancara dari AI:**")
-                    for idx, q in enumerate(item["justification"]["interview_questions"], start=1):
-                        st.markdown(f"{idx}. *{q}*")
                 st.markdown("---")
 
     with tab2:
