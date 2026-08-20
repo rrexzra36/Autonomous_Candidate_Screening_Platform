@@ -11,6 +11,10 @@ from anonymizer import BlindCVAnonymizer
 from matcher import CandidateMatcherEngine
 from parser import DocumentParser, EmptyPDFError, InvalidDocumentError, DocumentParsingError
 from config import Config
+try:
+    from drive_importer import GoogleDriveImporter
+except ImportError:
+    from src.drive_importer import GoogleDriveImporter
 
 # Page Config
 st.set_page_config(
@@ -325,34 +329,91 @@ if "parsed_cv_store" not in st.session_state:
     st.session_state["parsed_cv_store"] = {}
 if "eval_results_store" not in st.session_state:
     st.session_state["eval_results_store"] = {}
+if "drive_cv_files" not in st.session_state:
+    st.session_state["drive_cv_files"] = []
 
-col_up_title, col_clear_btn = st.columns([4, 1])
-with col_up_title:
-    st.markdown("**Unggah Dokumen CV Kandidat (Multiple PDF):**")
-with col_clear_btn:
-    if st.button("🗑️ Hapus Semua CV", help="Klik untuk menghapus/mereset seluruh berkas CV yang telah diunggah."):
-        st.session_state["cv_uploader_key"] += 1
-        st.session_state["parsed_cv_store"] = {}
-        st.session_state["eval_results_store"] = {}
-        st.rerun()
-
-uploaded_cv_files = st.file_uploader(
-    "Pilih atau drag & drop file PDF CV kandidat:",
-    type=["pdf"],
-    accept_multiple_files=True,
-    key=f"cv_uploader_{st.session_state['cv_uploader_key']}",
-    label_visibility="collapsed"
+cv_source_mode = st.radio(
+    "Pilih Metode Pengumpulan CV:",
+    ["📤 Upload Berkas PDF Manual", "📁 Impor dari Google Drive Folder"],
+    horizontal=True
 )
+
+raw_cv_items = []
+
+if cv_source_mode == "📤 Upload Berkas PDF Manual":
+    col_up_title, col_clear_btn = st.columns([3, 1])
+    with col_up_title:
+        st.markdown("**Unggah Dokumen CV Kandidat (Multiple PDF):**")
+    with col_clear_btn:
+        if st.button("🗑️ Hapus Semua CV", help="Klik untuk menghapus/mereset seluruh berkas CV yang telah diunggah."):
+            st.session_state["cv_uploader_key"] += 1
+            st.session_state["parsed_cv_store"] = {}
+            st.session_state["eval_results_store"] = {}
+            st.rerun()
+
+    uploaded_cv_files = st.file_uploader(
+        "Pilih atau drag & drop file PDF CV kandidat:",
+        type=["pdf"],
+        accept_multiple_files=True,
+        key=f"cv_uploader_{st.session_state['cv_uploader_key']}",
+        label_visibility="collapsed"
+    )
+    if uploaded_cv_files:
+        for f in uploaded_cv_files:
+            raw_cv_items.append({"name": f.name, "bytes": f.getvalue()})
+    else:
+        st.info("📤 Silakan upload satu atau beberapa berkas CV kandidat dalam format PDF.")
+
+else:
+    col_dr_in, col_dr_btn = st.columns([3, 1])
+    with col_dr_in:
+        drive_folder_url = st.text_input(
+            "Tautan (URL) Folder Google Drive:",
+            placeholder="Contoh: https://drive.google.com/drive/folders/1ABCxyz123...",
+            help="Pastikan izin akses folder telah diatur ke 'Anyone with the link can view' (Siapa saja yang memiliki link)."
+        )
+    with col_dr_btn:
+        st.write("")
+        st.write("")
+        if st.button("📥 Impor dari Drive", type="primary", use_container_width=True):
+            if drive_folder_url and drive_folder_url.strip():
+                with st.spinner("⏳ Menghubungi Google Drive & mengunduh berkas PDF..."):
+                    files, err = GoogleDriveImporter.fetch_pdf_files_from_drive(drive_folder_url)
+                    if err:
+                        st.error(err)
+                    else:
+                        st.session_state["drive_cv_files"] = files
+                        st.success(f"✅ Berhasil mengimpor {len(files)} berkas PDF dari Google Drive.")
+                        st.rerun()
+            else:
+                st.warning("⚠️ Masukkan tautan folder Google Drive terlebih dahulu.")
+
+    if st.session_state.get("drive_cv_files"):
+        d_files = st.session_state["drive_cv_files"]
+        col_dt, col_dc = st.columns([3, 1])
+        with col_dt:
+            st.write(f"📁 **{len(d_files)} berkas CV diimpor dari Google Drive.**")
+        with col_dc:
+            if st.button("🗑️ Reset Drive Files", help="Hapus berkas yang diimpor dari Google Drive."):
+                st.session_state["drive_cv_files"] = []
+                st.session_state["eval_results_store"] = {}
+                st.rerun()
+        
+        for f in d_files:
+            raw_cv_items.append({"name": f["name"], "bytes": f["bytes"]})
+    else:
+        st.info("💡 Masukkan tautan folder Google Drive publik yang berisi berkas PDF CV, lalu klik '📥 Impor dari Drive'.")
 
 candidates_to_process = []
 
-if uploaded_cv_files:
-    st.write(f"📁 **{len(uploaded_cv_files)} berkas CV diunggah untuk diproses.**")
+if raw_cv_items:
+    st.write(f"📋 **{len(raw_cv_items)} berkas CV siap diproses.**")
     invalid_cv_count = 0
     with st.spinner(f"🤖 Memvalidasi dan memproses CV kandidat..."):
-        for cv_file in uploaded_cv_files:
-            file_bytes = cv_file.getvalue()
-            cv_cache_key = f"{cv_file.name}_{len(file_bytes)}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+        for item in raw_cv_items:
+            fname = item["name"]
+            file_bytes = item["bytes"]
+            cv_cache_key = f"{fname}_{len(file_bytes)}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
             
             # Cek apakah CV ini sudah pernah di-parse sebelumnya di memori sesi
             if cv_cache_key in st.session_state["parsed_cv_store"]:
@@ -364,7 +425,7 @@ if uploaded_cv_files:
                 raw_text = DocumentParser.extract_text_from_pdf(file_bytes)
                 parsed_cv = DocumentParser.parse_candidate_cv(
                     raw_text,
-                    filename=cv_file.name,
+                    filename=fname,
                     api_key=effective_api_key,
                     provider=selected_provider,
                     model_name=effective_model
@@ -372,13 +433,13 @@ if uploaded_cv_files:
                 st.session_state["parsed_cv_store"][cv_cache_key] = parsed_cv
                 candidates_to_process.append(parsed_cv)
             except EmptyPDFError:
-                st.warning(f"⚠️ **File Dilewati [{cv_file.name}]:** Berkas kosong atau scan gambar tanpa teks digital.")
+                st.warning(f"⚠️ **File Dilewati [{fname}]:** Berkas kosong atau scan gambar tanpa teks digital.")
                 invalid_cv_count += 1
             except InvalidDocumentError as e:
-                st.warning(f"⚠️ **File Dilewati [{cv_file.name}]:** {str(e)}")
+                st.warning(f"⚠️ **File Dilewati [{fname}]:** {str(e)}")
                 invalid_cv_count += 1
             except Exception as e:
-                st.warning(f"⚠️ **Gagal Memproses [{cv_file.name}]:** {str(e)}")
+                st.warning(f"⚠️ **Gagal Memproses [{fname}]:** {str(e)}")
                 invalid_cv_count += 1
 
     if candidates_to_process:
