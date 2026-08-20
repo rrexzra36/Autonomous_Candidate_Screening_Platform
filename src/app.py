@@ -37,16 +37,33 @@ provider_choice = st.sidebar.selectbox(
     index=0
 )
 
+def get_available_gemini_models(api_key: str) -> list:
+    found = []
+    if not api_key:
+        return found
+    try:
+        from google import genai
+        client = genai.Client(api_key=api_key.strip())
+        for m in client.models.list():
+            m_name = m.name.replace("models/", "")
+            if "gemini" in m_name.lower():
+                found.append(m_name)
+    except Exception:
+        pass
+
+    if not found:
+        try:
+            import google.generativeai as legacy_genai
+            legacy_genai.configure(api_key=api_key.strip())
+            for m in legacy_genai.list_models():
+                if "generateContent" in getattr(m, "supported_generation_methods", []):
+                    found.append(m.name.replace("models/", ""))
+        except Exception:
+            pass
+    return list(dict.fromkeys(found))
+
 if provider_choice == "Google Gemini":
     selected_provider = "gemini"
-    model_options = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"]
-    default_model = Config.LLM_MODEL_NAME if Config.LLM_MODEL_NAME in model_options else "gemini-2.5-flash"
-    selected_model = st.sidebar.selectbox(
-        "Pilih Model Gemini:",
-        model_options,
-        index=model_options.index(default_model) if default_model in model_options else 0,
-        help="gemini-2.5-flash / 2.0-flash: Generasi terbaru Google GenAI v2/v3, cepat & cerdas."
-    )
     
     env_gemini_key = Config.GEMINI_API_KEY
     api_key_input = st.sidebar.text_input(
@@ -56,6 +73,39 @@ if provider_choice == "Google Gemini":
         help="Dapatkan Gemini API Key gratis di https://aistudio.google.com/"
     )
     active_api_key = Config.get_active_gemini_key(api_key_input)
+
+    # Base modern models
+    base_models = [
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-lite",
+        "gemini-3.0-flash",
+        "gemini-3.0-pro",
+        "gemini-2.5-pro",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro",
+        "Input Model Kustom (Manual)"
+    ]
+    
+    # Auto-discover if API key is present
+    live_models = get_available_gemini_models(active_api_key) if active_api_key else []
+    if live_models:
+        model_options = list(dict.fromkeys(live_models + base_models))
+    else:
+        model_options = base_models
+
+    selected_model_choice = st.sidebar.selectbox(
+        "Pilih Model Gemini:",
+        model_options,
+        index=0,
+        help="Model Gemini generasi terbaru (versi 2.5, 2.0, 3.0). Pilih 'Input Model Kustom' jika ingin memasukkan nama model spesifik."
+    )
+    
+    if selected_model_choice == "Input Model Kustom (Manual)":
+        custom_model = st.sidebar.text_input("Ketik Nama Model Gemini:", value="gemini-2.5-flash")
+        selected_model = custom_model.strip() if custom_model.strip() else "gemini-2.5-flash"
+    else:
+        selected_model = selected_model_choice
 
 else:
     selected_provider = "openai"
