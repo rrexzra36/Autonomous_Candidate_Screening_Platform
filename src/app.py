@@ -78,6 +78,41 @@ else:
 
 if active_api_key:
     st.sidebar.success(f"{provider_choice} (Connected)")
+    if st.sidebar.button("🧪 Uji Koneksi API"):
+        with st.sidebar.status("Menghubungi endpoint AI...", expanded=True) as status_box:
+            try:
+                test_text = None
+                if selected_provider == "gemini":
+                    from google import genai
+                    client = genai.Client(api_key=active_api_key)
+                    res = client.models.generate_content(
+                        model=selected_model or "gemini-1.5-flash",
+                        contents="Katakan 'OK' dalam 1 kata."
+                    )
+                    test_text = res.text
+                else:
+                    import openai
+                    client = openai.OpenAI(api_key=active_api_key)
+                    res = client.chat.completions.create(
+                        model=selected_model or "gpt-4o-mini",
+                        messages=[{"role": "user", "content": "Katakan 'OK' dalam 1 kata."}]
+                    )
+                    test_text = res.choices[0].message.content
+                
+                if test_text:
+                    status_box.update(label="✅ Koneksi API Sukses!", state="complete", expanded=False)
+                    st.sidebar.success(f"Berhasil terhubung ke **{selected_model}**.")
+                else:
+                    status_box.update(label="⚠️ Respon Kosong", state="error")
+            except Exception as e:
+                err_str = str(e)
+                status_box.update(label="❌ Gagal Terhubung ke API", state="error", expanded=True)
+                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                    st.sidebar.error("⚠️ **Limit Kuota Tercapai (Rate Limit 429):** Kuota request akun Gemini Anda telah habis. Tunggu 1 menit atau buat API key baru gratis di Google AI Studio.")
+                elif "400" in err_str or "API_KEY_INVALID" in err_str:
+                    st.sidebar.error("❌ **API Key Tidak Valid (400):** Periksa kembali karakter API key yang Anda masukkan.")
+                else:
+                    st.sidebar.error(f"❌ **Error API:** {err_str}")
 else:
     st.sidebar.info("Local Rule Engine (Offline)")
 
