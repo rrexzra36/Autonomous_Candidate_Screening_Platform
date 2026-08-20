@@ -79,7 +79,7 @@ class CandidateMatcherEngine:
             overall_score = round(overall_score * 0.5, 1)
 
         # --- TIER 3: LLM / XAI Reasoning ---
-        pros, cons = self._generate_reasoning(
+        pros, cons, eval_source = self._generate_reasoning(
             anonymized_cv, job_desc, matched_skills, jd_skills, total_exp, min_exp, knockout_reasons
         )
 
@@ -93,6 +93,7 @@ class CandidateMatcherEngine:
             "overall_score": overall_score,
             "status": status,
             "hard_filter_passed": hard_filter_passed,
+            "eval_source": eval_source,
             "score_breakdown": {
                 "skill_match": round(skill_score, 1),
                 "experience_depth": round(exp_score, 1),
@@ -216,7 +217,8 @@ Tanggung Jawab & Deskripsi:
                         pros = data.get("pros", [])
                         cons = data.get("cons", [])
                         if pros or cons:
-                            return pros, cons
+                            provider_label = f"Google Gemini ({self.model_name})" if self.provider == "gemini" else f"OpenAI ({self.model_name})"
+                            return pros, cons, provider_label
                 except Exception as e:
                     print(f"[Matcher AI Reasoning JSON Parse Error]: {e}")
 
@@ -243,33 +245,37 @@ Tanggung Jawab & Deskripsi:
         
         # Format Pros based on THIS candidate's actual CV
         if cand_tech:
-            pros.append(f"Technical Skills yang dimiliki: {', '.join(cand_tech)}.")
+            pros.append(f"Menguasai keahlian software dan peralatan teknis: {', '.join(cand_tech)}.")
         elif matched_tech:
-            pros.append(f"Technical Skills yang dimiliki: {', '.join(matched_tech)}.")
+            pros.append(f"Menguasai keahlian teknis yang relevan: {', '.join(matched_tech)}.")
 
         if cand_soft:
-            pros.append(f"Soft Skills yang dimiliki: {', '.join(cand_soft)}.")
+            pros.append(f"Memiliki kompetensi interpersonal dan etos kerja: {', '.join(cand_soft)}.")
         elif matched_soft:
-            pros.append(f"Soft Skills yang dimiliki: {', '.join(matched_soft)}.")
+            pros.append(f"Memiliki soft skills pendukung: {', '.join(matched_soft)}.")
 
         # Duration & Education
         if total_exp > 0:
             if total_exp >= min_exp:
-                pros.append(f"Memiliki total durasi pengalaman kerja {total_exp} tahun (memenuhi target >={min_exp} tahun).")
+                pros.append(f"Memenuhi kriteria pengalaman kerja dengan total durasi riil {total_exp} tahun (target: >= {min_exp} tahun).")
             else:
-                pros.append(f"Memiliki total durasi pengalaman kerja {total_exp} tahun.")
+                pros.append(f"Memiliki akumulasi pengalaman kerja {total_exp} tahun di industri terkait.")
 
-        edu = cv.get("education", {})
-        if isinstance(edu, dict) and edu.get("degree"):
-            pros.append(f"Latar Belakang Pendidikan: {edu.get('degree')}.")
+        edu_list = cv.get("education", [])
+        if isinstance(edu_list, list) and edu_list:
+            deg_names = [e.get("degree") for e in edu_list if e.get("degree")]
+            if deg_names:
+                pros.append(f"Didukung latar belakang pendidikan formal: {', '.join(deg_names)}.")
+        elif isinstance(edu_list, dict) and edu_list.get("degree"):
+            pros.append(f"Didukung latar belakang pendidikan: {edu_list.get('degree')}.")
 
         # Format Cons (Gaps against Job Vacancy)
         if knockout_reasons:
             cons.extend(knockout_reasons)
             
         if missing_tech:
-            cons.append(f"Belum mencantumkan Technical Skills: {', '.join(missing_tech)}.")
+            cons.append(f"Belum mencantumkan penguasaan tools spesifik yang diminta lowongan: {', '.join(missing_tech)}.")
         if missing_soft:
-            cons.append(f"Belum mencantumkan Soft Skills: {', '.join(missing_soft)}.")
+            cons.append(f"Perlu pendalaman lebih lanjut untuk pemenuhan soft skills: {', '.join(missing_soft)}.")
 
-        return pros, cons
+        return pros, cons, "Local Intelligent Rule Engine (Offline)"

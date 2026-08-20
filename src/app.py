@@ -316,6 +316,8 @@ if candidates_to_process and active_job:
                 col_a, col_b = st.columns(2)
                 col_a.markdown(f"📌 **Status Rekomendasi:** `{item['status']}`")
                 col_b.markdown(f"🎯 **Kesesuaian Skill:** `{item['score_breakdown']['skill_match']}%`")
+                if item.get("eval_source"):
+                    st.caption(f"⚡ *Engine Analisis:* `{item['eval_source']}`")
                 
                 with st.expander("Review"):
                     active_profile = item["anonymized_cv"] if enable_blind_cv else item["raw_cv"]
