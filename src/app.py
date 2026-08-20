@@ -352,15 +352,15 @@ with tab_upload:
             raw_cv_items.append({"name": f.name, "bytes": f.getvalue()})
 
 with tab_drive:
-    st.markdown("**Impor Berkas CV Otomatis dari Folder Google Drive:**")
-    st.caption("💡 Pastikan izin akses folder telah diatur ke **'Anyone with the link can view'** (Siapa saja yang memiliki link dapat melihat).")
+    st.markdown("**Impor Berkas CV dari Google Drive (Folder / 1 File Spesifik):**")
+    st.caption("💡 Mendukung tautan **Folder** (multi-CV) maupun tautan **1 File PDF spesifik**. Pastikan izin akses telah diatur ke **'Anyone with the link can view'**.")
     
     col_dr_in, col_dr_btn = st.columns([3, 1])
     with col_dr_in:
         drive_folder_url = st.text_input(
-            "Tautan (URL) Folder Google Drive:",
-            placeholder="Contoh: https://drive.google.com/drive/folders/1ABCxyz123...",
-            help="Salin dan tempelkan link folder Google Drive Anda di sini.",
+            "Tautan (URL) Folder / File Google Drive:",
+            placeholder="Contoh: https://drive.google.com/drive/folders/... atau https://drive.google.com/file/d/...",
+            help="Salin dan tempelkan link folder atau link file Google Drive Anda di sini.",
             key="drive_folder_input"
         )
     with col_dr_btn:
