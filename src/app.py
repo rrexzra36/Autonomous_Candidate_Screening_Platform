@@ -79,18 +79,18 @@ else:
 if active_api_key:
     st.sidebar.success(f"✨ {provider_choice} (Connected)")
 else:
-    st.sidebar.info("⚡ Local Intelligent Rule Engine (Offline)")
+    st.sidebar.info("Local Rule Engine (Offline)")
 
-enable_blind_cv = st.sidebar.toggle("🛡️ Blind-CV Anonymization (Bias Shield)", value=True, help="Otomatis menyamarkan PII kandidat sebelum scoring.")
+enable_blind_cv = st.sidebar.toggle("🛡️ Blind-CV Anonymization", value=True, help="Otomatis menyamarkan PII kandidat sebelum scoring.")
 
-st.sidebar.markdown("**Parameter yang Dianonimkan:**")
-st.sidebar.checkbox("👤 Nama Lengkap", value=True, key="chk_name", disabled=not enable_blind_cv)
-st.sidebar.checkbox("✉️ Alamat Email", value=True, key="chk_email", disabled=not enable_blind_cv)
-st.sidebar.checkbox("⚧️ Gender", value=True, key="chk_gender", disabled=not enable_blind_cv)
-st.sidebar.checkbox("🎂 Usia / Umur", value=True, key="chk_age", disabled=not enable_blind_cv)
-st.sidebar.checkbox("📍 Alamat Domisili", value=True, key="chk_address", disabled=not enable_blind_cv)
-st.sidebar.checkbox("🖼️ Foto Profil", value=True, key="chk_photo", disabled=not enable_blind_cv)
-st.sidebar.checkbox("🎓 Universitas / Kampus", value=True, key="chk_univ", disabled=not enable_blind_cv)
+st.sidebar.markdown("**Parameter:**")
+st.sidebar.checkbox("Nama Lengkap", value=True, key="chk_name", disabled=not enable_blind_cv)
+st.sidebar.checkbox("Alamat Email", value=True, key="chk_email", disabled=not enable_blind_cv)
+st.sidebar.checkbox("Gender", value=True, key="chk_gender", disabled=not enable_blind_cv)
+st.sidebar.checkbox("Usia / Umur", value=True, key="chk_age", disabled=not enable_blind_cv)
+st.sidebar.checkbox("Alamat Domisili", value=True, key="chk_address", disabled=not enable_blind_cv)
+st.sidebar.checkbox("Foto Profil", value=True, key="chk_photo", disabled=not enable_blind_cv)
+st.sidebar.checkbox("Universitas / Kampus", value=True, key="chk_univ", disabled=not enable_blind_cv)
 
 min_score = st.sidebar.slider("Minimum Shortlist Score Threshold (%):", 0, 100, 60, 5)
 
@@ -331,16 +331,16 @@ if candidates_to_process and active_job:
             st.markdown("#### ⚙️ Checklist Parameter yang Dianonimkan (Masking Rules):")
             c1, c2, c3, c4 = st.columns(4)
             with c1:
-                st.write(f"👤 **Nama Lengkap:** {'✅ Aktif' if 'full_name' in active_masked_fields else '❌ Nonaktif'}")
-                st.write(f"✉️ **Alamat Email:** {'✅ Aktif' if 'email' in active_masked_fields else '❌ Nonaktif'}")
+                st.write(f"**Nama Lengkap:** {'✅ Aktif' if 'full_name' in active_masked_fields else '❌ Nonaktif'}")
+                st.write(f"**Alamat Email:** {'✅ Aktif' if 'email' in active_masked_fields else '❌ Nonaktif'}")
             with c2:
-                st.write(f"⚧️ **Gender:** {'✅ Aktif' if 'gender' in active_masked_fields else '❌ Nonaktif'}")
-                st.write(f"🎂 **Usia / Umur:** {'✅ Aktif' if 'age' in active_masked_fields else '❌ Nonaktif'}")
+                st.write(f"**Gender:** {'✅ Aktif' if 'gender' in active_masked_fields else '❌ Nonaktif'}")
+                st.write(f"**Usia / Umur:** {'✅ Aktif' if 'age' in active_masked_fields else '❌ Nonaktif'}")
             with c3:
-                st.write(f"📍 **Alamat Domisili:** {'✅ Aktif' if 'address' in active_masked_fields else '❌ Nonaktif'}")
-                st.write(f"🖼️ **Foto Profil:** {'✅ Aktif' if 'photo_url' in active_masked_fields else '❌ Nonaktif'}")
+                st.write(f"**Alamat Domisili:** {'✅ Aktif' if 'address' in active_masked_fields else '❌ Nonaktif'}")
+                st.write(f"**Foto Profil:** {'✅ Aktif' if 'photo_url' in active_masked_fields else '❌ Nonaktif'}")
             with c4:
-                st.write(f"🎓 **Universitas / Kampus:** {'✅ Aktif' if 'university' in active_masked_fields else '❌ Nonaktif'}")
+                st.write(f"**Universitas / Kampus:** {'✅ Aktif' if 'university' in active_masked_fields else '❌ Nonaktif'}")
             st.caption("💡 *Ubah checklist melalui menu sidebar '⚙️ Checklist Field Blind-CV' untuk menyesuaikan parameter secara real-time.*")
 
         cv_options = [c["cv_id"] for c in evaluated_results]
@@ -349,11 +349,11 @@ if candidates_to_process and active_job:
         
         col_left, col_right = st.columns(2)
         with col_left:
-            st.error("❌ Data Mentah CV Asli (Rentan Bias Manusia)")
-            st.json(target_audit["raw_cv"].get("personal_info", {}))
+            st.error("❌ Data Mentah CV Asli (Lengkap)")
+            st.json(target_audit["raw_cv"])
         with col_right:
-            st.success("✅ Data Blind-CV yang Diterima AI (Sesuai Checklist Aktif)")
-            st.json(target_audit["anonymized_cv"].get("personal_info", {}))
+            st.success("✅ Data Blind-CV yang Diterima AI (Lengkap & Terlindungi)")
+            st.json(target_audit["anonymized_cv"])
 
     with tab3:
         st.subheader("📊 Analisis Distribusi Skor Kandidat")

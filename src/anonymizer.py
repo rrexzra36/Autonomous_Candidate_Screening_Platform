@@ -1,7 +1,7 @@
 """
 Blind-CV Anonymizer Engine (Bias Mitigation Layer)
 Bertanggung jawab menghapus Person Identifiable Information (PII) 
-secara fleksibel berdasarkan checklist pilihan pengguna sebelum data CV diproses.
+secara fleksibel berdasarkan checklist pilihan pengguna pada seluruh struktur profil CV.
 """
 
 from typing import Dict, Any, List
@@ -16,6 +16,7 @@ class BlindCVAnonymizer:
     DEFAULT_PII_FIELDS = [
         "full_name",
         "email",
+        "phone",
         "gender",
         "age",
         "photo_url",
@@ -33,20 +34,23 @@ class BlindCVAnonymizer:
 
         anonymized = copy.deepcopy(raw_cv)
         cv_id = anonymized.get("cv_id", "UNKNOWN_CV")
+        candidate_num = cv_id.split('-')[-1]
         
-        # Mask Personal Info
+        # 1. Mask Personal Info
         personal_info = anonymized.get("personal_info", {})
         masked_info = copy.deepcopy(personal_info)
         
         if "full_name" in enabled_fields:
-            candidate_num = cv_id.split('-')[-1]
             masked_info["candidate_alias"] = f"CANDIDATE-{candidate_num}"
             masked_info["full_name"] = f"CANDIDATE-{candidate_num} (Anonymized)"
         else:
-            masked_info["candidate_alias"] = personal_info.get("full_name", f"CANDIDATE-{cv_id.split('-')[-1]}")
+            masked_info["candidate_alias"] = personal_info.get("full_name", f"CANDIDATE-{candidate_num}")
             
         if "email" in enabled_fields:
             masked_info["email"] = "[MASKED_EMAIL@ANONYMIZED.LOCAL]"
+            
+        if "phone" in enabled_fields or "email" in enabled_fields:
+            masked_info["phone"] = "[MASKED_PHONE]"
             
         if "gender" in enabled_fields:
             masked_info["gender"] = "[MASKED_GENDER]"
@@ -62,21 +66,20 @@ class BlindCVAnonymizer:
             
         if "university" in enabled_fields:
             masked_info["university"] = "Accredited Higher Education Institution (Masked)"
-            education = anonymized.get("education", {})
-            if isinstance(education, dict) and "institution" in education:
-                education["institution"] = "Accredited Higher Education Institution (Masked)"
-                education["institution_tier"] = "Accredited Institution (Masked)"
 
         anonymized["personal_info"] = masked_info
+        
+        # 2. Mask Education Institution Names
+        if "university" in enabled_fields:
+            edu_data = anonymized.get("education", [])
+            if isinstance(edu_data, list):
+                for item in edu_data:
+                    if isinstance(item, dict) and "institution" in item:
+                        item["institution"] = "Accredited Higher Education Institution (Masked)"
+            elif isinstance(edu_data, dict):
+                if "institution" in edu_data:
+                    edu_data["institution"] = "Accredited Higher Education Institution (Masked)"
+                    edu_data["institution_tier"] = "Accredited Institution (Masked)"
+
         anonymized["is_anonymized"] = True
         return anonymized
-
-if __name__ == "__main__":
-    import json
-    sample_cv = {
-        "cv_id": "CV-RAW-001",
-        "personal_info": {"full_name": "Budi Santoso", "email": "budi@email.com", "gender": "Laki-laki", "age": 27, "address": "Jakarta", "university": "Universitas Indonesia"},
-        "education": {"degree": "S1 Teknik Mesin", "institution": "Universitas Indonesia"}
-    }
-    result = BlindCVAnonymizer.anonymize_cv(sample_cv, ["full_name", "email", "gender"])
-    print(json.dumps(result, indent=2))

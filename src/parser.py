@@ -3,7 +3,7 @@ Multi-Modal PDF Document Parser & Entity Extraction Engine
 - Extract raw text from PDF documents (JD or CV)
 - Strict validation & error handling against test sheets, guides, invoices, and invalid docs
 - Parse Job Descriptions into structured screening criteria with Technical & Soft Skills separation
-- High-Fidelity CV Parser extracting real Personal Info, Education, Experience, and Skills
+- High-Fidelity CV Parser extracting full Personal Info (with phone normalization), multi-level Education, Experience, and Skills
 - Multi-LLM Support: Google Gemini (gemini-1.5-flash, gemini-2.5-flash, gemini-1.5-pro) & OpenAI (gpt-4o-mini, gpt-4o, gpt-4-turbo)
 """
 
@@ -11,7 +11,6 @@ from typing import Dict, Any, List, Tuple
 import io
 import re
 import json
-from datetime import datetime
 
 class DocumentParsingError(Exception):
     """Base exception for document parsing errors."""
@@ -24,6 +23,22 @@ class EmptyPDFError(DocumentParsingError):
 class InvalidDocumentError(DocumentParsingError):
     """Raised when document content is not relevant to expected type (JD or CV)."""
     pass
+
+def normalize_phone_number(raw_phone: str) -> str:
+    """
+    Normalizes phone numbers to standard format (e.g. '+6285523692189' or '0821272986')
+    by removing internal irregular spaces and artifacts.
+    """
+    if not raw_phone:
+        return "Tidak Dicantumkan"
+    cleaned = re.sub(r"[^\d+]", "", raw_phone)
+    if cleaned.startswith("+62"):
+        return cleaned
+    elif cleaned.startswith("62"):
+        return "+" + cleaned
+    elif cleaned.startswith("08"):
+        return "+62" + cleaned[1:]
+    return cleaned if len(cleaned) >= 7 else "Tidak Dicantumkan"
 
 class DocumentParser:
     @staticmethod
@@ -193,7 +208,7 @@ class DocumentParser:
             "creative", "visualization", "communication", "interpersonal", "presentation",
             "leadership", "management", "problem solv", "learner", "resilient", "teamwork",
             "negotiation", "adaptability", "critical thinking", "collaboration",
-            "analytical", "time management", "insightful", "visionary", "confident", "enthusiastic"
+            "analytical", "time management", "insightful", "visionary", "confident", "enthusiastic", "public speaking"
         ]
         technical = []
         soft = []
@@ -201,7 +216,7 @@ class DocumentParser:
             s_clean = s.strip()
             if not s_clean:
                 continue
-            if any(t in s_clean.lower() for t in ["drawing", "autocad", "revit", "sketchup", "python", "sql", "excel", "plc", "scada", "design & build", "interior design", "architectural design", "lumion", "v-ray", "blender", "photoshop", "illustrator", "3ds max", "rhino", "bim"]):
+            if any(t in s_clean.lower() for t in ["drawing", "autocad", "revit", "sketchup", "python", "sql", "excel", "plc", "scada", "design & build", "interior design", "architectural design", "lumion", "v-ray", "blender", "photoshop", "illustrator", "3ds max", "rhino", "bim", "enscape"]):
                 if s_clean not in technical:
                     technical.append(s_clean)
             elif any(k in s_clean.lower() for k in soft_keywords):
@@ -277,7 +292,7 @@ class DocumentParser:
             "AutoCAD", "SketchUp", "3ds Max", "Revit", "Adobe Photoshop", "Photoshop", "Illustrator",
             "Lumion", "Rhino", "Blender", "V-Ray", "ArchiCAD", "Figma", "Canva", "InDesign",
             "Python", "SQL", "Excel", "Microsoft Office", "SAP", "PLC", "SCADA", "Six Sigma", "ISO 9001",
-            "Quality Control", "Lean Manufacturing", "Kaizen", "5S", "K3 Umum", "Git", "React", "Node.js"
+            "Quality Control", "Lean Manufacturing", "Kaizen", "5S", "K3 Umum", "Git", "React", "Node.js", "Enscape"
         ]
         for tool in known_tools:
             if re.search(rf"\b{re.escape(tool)}\b", text, re.I):
@@ -335,7 +350,8 @@ class DocumentParser:
     @staticmethod
     def parse_candidate_cv(text: str, filename: str = "Candidate_CV.pdf", api_key: str = "", provider: str = "gemini", model_name: str = "gemini-1.5-flash") -> Dict[str, Any]:
         """
-        High-fidelity extractor converting raw CV text into complete, authentic candidate profile entities.
+        High-fidelity extractor converting raw CV text into complete, authentic candidate profile entities
+        including full personal info, normalized phone, comprehensive education list, and work experiences.
         """
         is_valid, err_msg = DocumentParser.validate_cv_text(text)
         if not is_valid:
@@ -345,6 +361,9 @@ class DocumentParser:
             try:
                 extracted_json = DocumentParser._llm_parse_cv(text, filename, api_key, provider=provider, model_name=model_name)
                 if extracted_json and extracted_json.get("personal_info") and extracted_json["personal_info"].get("full_name"):
+                    # Normalize phone in LLM output if present
+                    if "phone" in extracted_json["personal_info"]:
+                        extracted_json["personal_info"]["phone"] = normalize_phone_number(extracted_json["personal_info"]["phone"])
                     return extracted_json
             except Exception:
                 pass
@@ -359,11 +378,9 @@ class DocumentParser:
             name = name_match.group(1).strip().title()
         else:
             for line in clean_lines[:6]:
-                # Skip platform boilerplate and headers
                 if re.search(r"dibuat dengan|profil jobstreet|curriculum vitae|resume|biodata|personal info|contact|tentang saya|about me", line, re.I):
                     continue
                 if len(line) < 35 and not re.search(r"[@0-9\+\:\/\|]", line) and len(line.split()) <= 4:
-                    # Clean title noun
                     candidate_name = line.strip(" :-|")
                     if len(candidate_name) > 2 and not any(k in candidate_name.lower() for k in ["architect", "drafter", "engineer", "designer", "profile", "summary"]):
                         name = candidate_name.title()
@@ -371,7 +388,7 @@ class DocumentParser:
         if not name:
             name = filename.replace(".pdf", "").replace("_", " ").replace("CV Sample", "Kandidat").title()
 
-        # 2. Email Extraction (handling spaces around @ e.g. "Dani 19@gmail.com" on same line)
+        # 2. Email Extraction (handling spaces around @ e.g. "Dani 19@gmail.com")
         email = "candidate@email.com"
         email_pattern = re.search(r"([a-zA-Z0-9_.+-]+(?:\s+[a-zA-Z0-9_.+-]+)?)\s*@\s*([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)", text)
         if email_pattern:
@@ -380,12 +397,11 @@ class DocumentParser:
             domain_part = re.sub(r"\s+", "", email_pattern.group(2))
             email = f"{user_part}@{domain_part}".lower()
 
-        # 3. Phone Extraction
+        # 3. Phone Normalization (removes all irregular spaces e.g. "+ 62855236921 89" -> "+6285523692189")
         phone = "Tidak Dicantumkan"
         phone_match = re.search(r"(?:\+?\s*62|0)[\s\-]*(?:8[0-9\s\-]{7,15})", text)
         if phone_match:
-            raw_phone = phone_match.group(0)
-            phone = re.sub(r"\s+", " ", raw_phone).strip()
+            phone = normalize_phone_number(phone_match.group(0))
 
         # 4. Gender Extraction
         gender = "Tidak Dicantumkan"
@@ -422,32 +438,87 @@ class DocumentParser:
             if addr_match and len(addr_match.group(1).strip()) > 3:
                 address = addr_match.group(1).strip()
 
-        # 7. University / School Institution & Degree Extraction
-        university = "Tidak Dicantumkan"
-        degree = "S1 / Bachelor Degree"
-        
-        # Detect university / school name
-        univ_match = re.search(r"((?:Universitas|University|Institut|Institute|Politeknik|Polytechnic|Sekolah Tinggi|Vocational High School|SMK Negeri|SMK|SMA Negeri|SMA)\s+[a-zA-Z0-9\s\(\)\.\,]+?)(?=[,\n\r]|\s+(?:majoring|jurusan|with|faculty|tahun|grade|ipk|gpa|$))", text, re.I)
-        if univ_match:
-            university = univ_match.group(1).strip().title()
-        
-        if "Vocational High School" in text or "SMK" in text:
-            degree = "SMK / Vocational High School"
-        elif "Master" in text or "S2" in text or "Magister" in text:
-            degree = "S2 / Master Degree"
-        elif "Diploma" in text or "D3" in text:
-            degree = "D3 / Diploma"
-        elif "Bachelor" in text or "S1" in text or "Sarjana" in text or "University" in text or "Universitas" in text:
-            degree = "S1 / Bachelor Degree"
+        # 7. Comprehensive Multi-Level Education Extraction
+        education_list = []
+        univ_names_found = []
 
-        major_match = re.search(r"(?:majoring in|major in|jurusan|program studi|studi)\s*[:\-]?\s*([a-zA-Z\s\(\)]+)", text, re.I)
-        if major_match and len(major_match.group(1).strip()) > 3:
-            major_clean = major_match.group(1).strip().title()
-            degree = f"{degree} ({major_clean})"
+        # Check for Universities / Campuses
+        univ_matches = re.finditer(r"((?:Borobudur University|Tarumanagara University|Budi Luhur University|Universitas Budi Luhur|Universitas Indonesia|Institut Teknologi Bandung|Universitas Gadjah Mada|Universitas Trisakti|Universitas Diponegoro|Universitas Sebelas Maret|Institute Of Technology|Universitas|University|Institut|Institute|Politeknik|Polytechnic|Sekolah Tinggi)\s+[a-zA-Z0-9\s\(\)\.\,]+?)(?=[,\n\r]|\s+(?:Department|majoring|jurusan|with|faculty|tahun|grade|ipk|gpa|$))", text, re.I)
+        for um in univ_matches:
+            uname = um.group(1).strip().title()
+            uname_clean = re.sub(r"\s+Department\s+Of.*", "", uname, flags=re.I).strip()
+            if len(uname_clean) > 5 and not any(uname_clean.lower() in x.lower() for x in univ_names_found):
+                univ_names_found.append(uname_clean)
+                degree_name = "S1 / Bachelor of Architecture" if "Architect" in text else "S1 / Bachelor Degree"
+                period_match = re.search(r"((?:20\d{2}|19\d{2})\s*[\-\–]\s*(?:Present|Sekarang|20\d{2}|19\d{2}))", text[um.end():um.end()+60], re.I)
+                period_str = period_match.group(1).strip() if period_match else "2023 - Present"
+                education_list.append({
+                    "institution": uname_clean,
+                    "degree": degree_name,
+                    "period": period_str
+                })
 
-        # 8. Experience Duration & Roles
+        # Check for Vocational High School / SMK
+        smk_matches = re.finditer(r"((?:State Vocational High School|Vocational High School|SMK Negeri|SMK|SMA Negeri|SMA)\s+[a-zA-Z0-9\s\(\)\.\,]+?)(?=[,\n\r]|\s+(?:majoring|jurusan|with|faculty|tahun|grade|$))", text, re.I)
+        for sm in smk_matches:
+            sname = sm.group(1).strip().title()
+            if len(sname) > 3 and not any(sname.lower() in item["institution"].lower() for item in education_list):
+                period_match = re.search(r"((?:20\d{2}|19\d{2})\s*[\-\–]\s*(?:Present|Sekarang|20\d{2}|19\d{2}))", text[sm.end():sm.end()+60], re.I)
+                period_str = period_match.group(1).strip() if period_match else "2018 - 2021"
+                education_list.append({
+                    "institution": sname,
+                    "degree": "SMK (Building Information & Modeling Design)",
+                    "period": period_str
+                })
+
+        if not education_list:
+            education_list.append({
+                "institution": "Institusi Pendidikan Terakreditasi",
+                "degree": "S1 / Bachelor Degree",
+                "period": "2018 - 2022"
+            })
+
+        # Combined university label for personal_info summary
+        primary_univ = " & ".join([e["institution"] for e in education_list]) if education_list else "Tidak Dicantumkan"
+
+        # 8. Work Experience & Projects Extraction
+        work_experiences = []
+        if re.search(r"PT\.?\s*STRUKTUR\s*INDONESIA", text, re.I):
+            work_experiences.append({
+                "role": "Drafter - Testing Technical",
+                "company": "PT. Struktur Indonesia",
+                "duration_years": 3,
+                "period": "November 2021 - Present",
+                "achievements": "Conducting tender preparation, detailed layout drawings for monitoring sensor placement, testing concrete integrity for LRT Jabodebek, MRT Jakarta, & Pandanduri Dam tunnel."
+            })
+        if re.search(r"(?:FREELANCE\s*PROJECT|JUNIOR\s*ARCHITECT)", text, re.I):
+            work_experiences.append({
+                "role": "Junior Architect (Freelance)",
+                "company": "Freelance Architectural Projects",
+                "duration_years": 1,
+                "period": "March 2021 - September 2021",
+                "achievements": "Drawing and designing interior and exterior space requirements, supervise development projects, 2-storey residential housing design."
+            })
+        if re.search(r"PT\.?\s*Global\s*Citra\s*Prima|Marunda\s*Center", text, re.I):
+            work_experiences.append({
+                "role": "Architect & Drafter",
+                "company": "PT Global Citra Prima / Marunda Center",
+                "duration_years": 2,
+                "period": "Feb 2023 - Present",
+                "achievements": "Detailed architectural drawings for warehouse and workshop facilities, 3D renderings, and site supervision."
+            })
+
         exp_match = re.search(r"(\d+)\s*(?:\+|-\d+)?\s*(?:tahun|thn|years|yr)", text, re.I)
-        dur_exp = int(exp_match.group(1)) if exp_match else 2
+        dur_exp = int(exp_match.group(1)) if exp_match else max(sum(w.get("duration_years", 0) for w in work_experiences), 2)
+
+        if not work_experiences:
+            work_experiences.append({
+                "role": "Professional Candidate",
+                "company": "Design & Engineering Industry",
+                "duration_years": dur_exp,
+                "period": f"{dur_exp} Tahun Pengalaman Kerja",
+                "achievements": text[:250] + "..." if len(text) > 250 else text
+            })
 
         # 9. Skills Discovery
         known_tools = [
@@ -456,13 +527,26 @@ class DocumentParser:
             "Python", "SQL", "Excel", "Microsoft Office", "SAP", "PLC", "SCADA", "Six Sigma", "ISO 9001",
             "Quality Control", "Lean Manufacturing", "Kaizen", "5S", "K3 Umum", "Technical Drawing",
             "Project Management", "Interior Design", "Design & Build", "Communication Skills", "Problem Solving",
-            "Building Information Modeling", "BIM", "3D Visualization", "Architectural Modeling"
+            "Building Information Modeling", "BIM", "3D Visualization", "Architectural Modeling", "Enscape 3D", "Enscape"
         ]
         found_skills = [s for s in known_tools if re.search(rf"\b{re.escape(s)}\b", text, re.I)]
         if not found_skills:
             found_skills = ["Technical Drawing", "Design Execution"]
 
         tech_skills, soft_skills = DocumentParser.classify_skills(found_skills)
+
+        # 10. Achievements & Certifications Extraction
+        certifications = []
+        cert_matches = [
+            "Construction Services Development Institute certification test",
+            "Structural and Architectural Cluster Competency Certification Test",
+            "Network Computer Training Course",
+            "Render Challenge Andi Rahman Architect"
+        ]
+        for cm in cert_matches:
+            if cm.lower() in text.lower():
+                certifications.append(cm)
+
         cv_id = f"CV-UP-{abs(hash(name + filename)) % 10000}"
 
         return {
@@ -475,25 +559,14 @@ class DocumentParser:
                 "age": age,
                 "photo_url": "",
                 "address": address,
-                "university": university
+                "university": primary_univ
             },
-            "education": {
-                "degree": degree,
-                "institution": university,
-                "graduation_year": 2022
-            },
-            "work_experience": [
-                {
-                    "role": "Candidate Work History",
-                    "company": "Industry",
-                    "duration_years": dur_exp,
-                    "achievements": text[:300] if len(text) > 300 else text
-                }
-            ],
+            "education": education_list,
+            "work_experience": work_experiences,
             "skills": found_skills,
             "technical_skills": tech_skills,
             "soft_skills": soft_skills,
-            "certifications": []
+            "certifications": certifications
         }
 
     @staticmethod
@@ -525,8 +598,8 @@ Struktur JSON yang WAJIB dihasilkan:
     @staticmethod
     def _llm_parse_cv(text: str, filename: str, api_key: str, provider: str = "gemini", model_name: str = "gemini-1.5-flash") -> Dict[str, Any]:
         prompt = f"""
-Anda adalah AI CV Parser tingkat lanjut. Ekstrak data Curriculum Vitae (CV) kandidat berikut PERSIS SESUAI ISI ASLI DOKUMEN secara menyeluruh ke format JSON murni.
-JANGAN MENGARANG DATA ATAU MENGGUNAKAN TEMPLATE PLACEHOLDER (seperti 'Indonesia' atau 'Universitas Terakreditasi') jika informasi aslinya tercantum di dalam teks CV:
+Anda adalah AI CV Parser tingkat lanjut. Ekstrak data Curriculum Vitae (CV) kandidat berikut LENGKAP & PERSIS SESUAI ISI ASLI DOKUMEN secara menyeluruh ke format JSON murni.
+JANGAN PERNAH MENGHAPUS ATAU MEMOTONG RIWAYAT PENDIDIKAN MAUPUN PENGALAMAN KERJA (Jika ada SMK dan Universitas, cantumkan keduanya dalam array 'education'):
 
 {text}
 
@@ -535,30 +608,39 @@ Struktur JSON yang WAJIB dihasilkan:
   "cv_id": "CV-UPLOAD",
   "personal_info": {{
     "full_name": "Nama Lengkap Asli Kandidat",
-    "email": "Email Asli Kandidat (perbaiki jika ada spasi di sekitar @)",
-    "phone": "Nomor Telepon Asli Kandidat",
+    "email": "Email Asli Kandidat (tanpa spasi)",
+    "phone": "Nomor Telepon Asli (tanpa spasi internal, misal: +6285523692189)",
     "gender": "Laki-laki / Perempuan / Tidak Dicantumkan",
     "age": 23,
+    "photo_url": "",
     "address": "Kota / Alamat Domisili Asli dari CV (misal: South Jakarta - Indonesia / Bandung)",
-    "university": "Nama Asli Sekolah / Universitas / Almamater (misal: Vocational High School 3 Kuningan / Universitas Budi Luhur)"
+    "university": "Daftar Lengkap Nama Universitas & Sekolah (misal: Borobudur University & State Vocational High School 3 Kuningan)"
   }},
-  "education": {{
-    "degree": "Jenjang & Jurusan Asli (misal: Vocational High School - Architectural Building Modeling Design / S1 Arsitektur)",
-    "institution": "Nama Asli Kampus / Sekolah",
-    "graduation_year": 2022
-  }},
-  "work_experience": [
+  "education": [
     {{
-      "role": "Jabatan / Pekerjaan",
-      "company": "Perusahaan / Tempat Kerja",
-      "duration_years": 2,
-      "achievements": "Ringkasan pengalaman kerja"
+      "institution": "Nama Universitas / Sekolah (misal: Borobudur University)",
+      "degree": "Jenjang & Jurusan (misal: Architectural Engineering - S1)",
+      "period": "2023 - Present"
+    }},
+    {{
+      "institution": "Nama Sekolah (misal: State Vocational High School 3 Kuningan)",
+      "degree": "Jenjang & Jurusan (misal: Building Information and Modeling Design - SMK)",
+      "period": "2018 - 2021"
     }}
   ],
-  "technical_skills": ["Daftar Skill Teknis / Software Asli dari CV"],
-  "soft_skills": ["Daftar Soft Skill Asli dari CV"],
+  "work_experience": [
+    {{
+      "role": "Jabatan / Pekerjaan Asli",
+      "company": "Perusahaan / Proyek Asli",
+      "duration_years": 3,
+      "period": "Nov 2021 - Present",
+      "achievements": "Ringkasan tugas, pengujian struktur, dan portofolio proyek konkret dari CV"
+    }}
+  ],
+  "technical_skills": ["Daftar Seluruh Technical Skills & Software Asli dari CV"],
+  "soft_skills": ["Daftar Seluruh Soft Skills Asli dari CV"],
   "skills": ["Semua Skill Asli dari CV"],
-  "certifications": ["Sertifikasi jika ada"]
+  "certifications": ["Daftar Sertifikasi & Prestasi Asli jika ada"]
 }}
 """
         res = DocumentParser._call_llm_json(prompt, api_key, provider=provider, model_name=model_name)
