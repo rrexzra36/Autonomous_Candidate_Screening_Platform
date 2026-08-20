@@ -52,31 +52,40 @@ class GoogleDriveImporter:
         
         with tempfile.TemporaryDirectory() as temp_dir:
             downloaded = None
+            last_err = None
             try:
-                # 1. Coba unduh sebagai folder
+                # 1. Coba unduh via folder ID
                 downloaded = gdown.download_folder(
-                    url=folder_url,
+                    id=drive_id,
                     output=temp_dir,
                     quiet=True,
-                    remaining_ok=True
+                    use_cookies=False
                 )
-            except Exception as e_folder:
-                # 2. Coba unduh sebagai single file jika bukan folder
+            except Exception as e_id:
+                last_err = e_id
                 try:
-                    target_file = os.path.join(temp_dir, "document.pdf")
-                    single_res = gdown.download(
-                        id=drive_id,
-                        output=target_file,
-                        quiet=True
+                    # 2. Coba unduh via folder URL
+                    downloaded = gdown.download_folder(
+                        url=folder_url,
+                        output=temp_dir,
+                        quiet=True,
+                        use_cookies=False
                     )
-                    if single_res and os.path.exists(single_res):
-                        downloaded = [single_res]
-                except Exception as e_single:
-                    return [], (
-                        f"Gagal mengakses Google Drive: Pastikan izin folder/file telah diatur ke "
-                        f"'Siapa saja yang memiliki link' (Anyone with the link can view).\n"
-                        f"Detail: {str(e_folder)}"
-                    )
+                except Exception as e_url:
+                    last_err = e_url
+                    try:
+                        # 3. Coba unduh sebagai single file jika URL adalah file individual
+                        target_file = os.path.join(temp_dir, "document.pdf")
+                        single_res = gdown.download(
+                            id=drive_id,
+                            output=target_file,
+                            quiet=True,
+                            use_cookies=False
+                        )
+                        if single_res and os.path.exists(single_res):
+                            downloaded = [single_res]
+                    except Exception as e_single:
+                        last_err = e_single
 
             # Temukan semua berkas PDF yang berhasil diunduh
             pdf_results = []
@@ -97,6 +106,12 @@ class GoogleDriveImporter:
                             continue
 
             if not pdf_results:
+                if last_err:
+                    return [], (
+                        f"Gagal mengakses Google Drive: Pastikan izin folder/file telah diatur ke "
+                        f"'Siapa saja yang memiliki link' (Anyone with the link can view).\n"
+                        f"Detail: {str(last_err)}"
+                    )
                 return [], "Tidak ditemukan berkas PDF (.pdf) di dalam folder Google Drive tersebut."
 
             return pdf_results, ""
