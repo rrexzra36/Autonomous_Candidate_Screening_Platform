@@ -244,7 +244,14 @@ with tab_jd_pdf:
                 active_job = None
 
 with tab_jd_drive:
-    st.markdown("**Import Job Description from Google Drive:**")
+    col_jd_dr_title, col_jd_dr_reset = st.columns([3, 1], vertical_alignment="center")
+    with col_jd_dr_title:
+        st.markdown("**Import Job Description from Google Drive:**")
+    with col_jd_dr_reset:
+        if st.button("🗑️ Reset Drive File", key="btn_reset_jd_drive", use_container_width=True, help="Click to reset the Job Description imported from Google Drive."):
+            st.session_state["drive_jd_file"] = None
+            st.rerun()
+
     st.caption("💡 Supports a **specific single PDF file link** or a **public Google Drive folder** containing job vacancy documents.")
     
     col_jd_dr_in, col_jd_dr_btn = st.columns([3, 1], vertical_alignment="bottom")
@@ -253,7 +260,8 @@ with tab_jd_drive:
             "Google Drive Job Description URL / Link:",
             placeholder="e.g., https://drive.google.com/file/d/... or https://drive.google.com/drive/folders/...",
             help="Copy and paste the Google Drive file or folder link containing the job description document.",
-            key="drive_jd_input"
+            key="drive_jd_input",
+            label_visibility="collapsed"
         )
     with col_jd_dr_btn:
         if st.button("📥 Import Job from Drive", type="primary", use_container_width=True):
@@ -272,14 +280,6 @@ with tab_jd_drive:
 
     if st.session_state.get("drive_jd_file"):
         jd_f = st.session_state["drive_jd_file"]
-        col_jdt, col_jdc = st.columns([3, 1], vertical_alignment="center")
-        with col_jdt:
-            st.info(f"📄 **Selected Drive File:** `{jd_f['name']}` ({round(jd_f['size']/1024, 1)} KB)")
-        with col_jdc:
-            if st.button("🗑️ Reset Drive File", key="btn_reset_jd_drive", use_container_width=True):
-                st.session_state["drive_jd_file"] = None
-                st.rerun()
-        
         if active_job is None:
             with st.spinner(f"🤖 AI ({provider_choice}) is validating the Job Description from Google Drive..."):
                 try:
@@ -302,7 +302,14 @@ with tab_jd_drive:
                     active_job = None
 
 with tab_jd_text:
-    st.markdown("**Type or Paste Job Description Text Directly:**")
+    col_jd_txt_title, col_jd_txt_reset = st.columns([3, 1], vertical_alignment="center")
+    with col_jd_txt_title:
+        st.markdown("**Type or Paste Job Description Text Directly:**")
+    with col_jd_txt_reset:
+        if st.button("🗑️ Clear Text", key="btn_reset_jd_text", use_container_width=True, help="Click to clear the job description text."):
+            st.session_state["jd_text_area"] = ""
+            st.rerun()
+
     jd_raw_text = st.text_area(
         "Job Description Text:",
         height=220,
@@ -427,19 +434,27 @@ with tab_upload:
             raw_cv_items.append({"name": f.name, "bytes": f.getvalue()})
 
 with tab_drive:
-    st.markdown("**Import Candidate CVs from Google Drive (Folder / Specific Single File):**")
+    col_dr_title, col_dr_reset = st.columns([3, 1], vertical_alignment="center")
+    with col_dr_title:
+        st.markdown("**Import Candidate CVs from Google Drive:**")
+    with col_dr_reset:
+        if st.button("🗑️ Reset Drive Files", key="btn_reset_cv_drive", use_container_width=True, help="Click to clear and reset all files imported from Google Drive."):
+            st.session_state["drive_cv_files"] = []
+            st.session_state["eval_results_store"] = {}
+            st.rerun()
+
     st.caption("💡 Supports **Google Drive Folder** (multi-CV ingestion) or a **specific single PDF file link**. Ensure access is set to **'Anyone with the link can view'**.")
     
-    col_dr_in, col_dr_btn = st.columns([3, 1])
+    col_dr_in, col_dr_btn = st.columns([3, 1], vertical_alignment="bottom")
     with col_dr_in:
         drive_folder_url = st.text_input(
             "Google Drive Folder / File URL:",
             placeholder="e.g., https://drive.google.com/drive/folders/... or https://drive.google.com/file/d/...",
             help="Copy and paste your Google Drive folder or file link here.",
-            key="drive_folder_input"
+            key="drive_folder_input",
+            label_visibility="collapsed"
         )
     with col_dr_btn:
-        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
         if st.button("📥 Import from Drive", type="primary", use_container_width=True):
             if drive_folder_url and drive_folder_url.strip():
                 with st.spinner("⏳ Connecting to Google Drive & downloading PDF documents..."):
@@ -454,23 +469,12 @@ with tab_drive:
                 st.warning("⚠️ Please enter a Google Drive link first.")
 
     if st.session_state.get("drive_cv_files"):
-        d_files = st.session_state["drive_cv_files"]
-        col_dt, col_dc = st.columns([3, 1])
-        with col_dt:
-            st.write(f"📁 **{len(d_files)} active CV files from Google Drive.**")
-        with col_dc:
-            if st.button("🗑️ Reset Drive Files", help="Clear files imported from Google Drive."):
-                st.session_state["drive_cv_files"] = []
-                st.session_state["eval_results_store"] = {}
-                st.rerun()
-        
-        for f in d_files:
+        for f in st.session_state["drive_cv_files"]:
             raw_cv_items.append({"name": f["name"], "bytes": f["bytes"]})
 
 candidates_to_process = []
 
 if raw_cv_items:
-    st.write(f"📋 **{len(raw_cv_items)} CV documents ready to process.**")
     invalid_cv_count = 0
     with st.spinner(f"🤖 Validating and processing candidate CVs..."):
         for item in raw_cv_items:
