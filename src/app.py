@@ -191,15 +191,11 @@ effective_model = st.session_state.get("connected_model", selected_model) if is_
 # ==========================================
 st.header("1️⃣ Pengaturan Posisi & Kriteria Lowongan (Job Description)")
 
-jd_input_mode = st.radio(
-    "Pilih Metode Input Job Description:",
-    ["📄 Upload Dokumen PDF", "✍️ Ketik / Tempel Teks Langsung"],
-    horizontal=True
-)
+tab_jd_pdf, tab_jd_text = st.tabs(["📄 Upload Dokumen PDF", "✍️ Ketik / Tempel Teks Langsung"])
 
 active_job = None
 
-if jd_input_mode == "📄 Upload Dokumen PDF":
+with tab_jd_pdf:
     uploaded_jd_pdf = st.file_uploader(
         "Upload Dokumen PDF Job Description (berisi Job Title, Requirements, Responsibilities):",
         type=["pdf"],
@@ -227,10 +223,8 @@ if jd_input_mode == "📄 Upload Dokumen PDF":
             except Exception as e:
                 st.error(f"❌ **Gagal Memproses PDF:** {str(e)}")
                 active_job = None
-    else:
-        st.info("📄 Silakan upload berkas PDF Job Description untuk memulai proses seleksi.")
 
-else:
+with tab_jd_text:
     jd_raw_text = st.text_area(
         "Ketik atau tempel teks rincian lowongan kerja di sini:",
         height=220,
@@ -244,26 +238,25 @@ else:
         key="jd_text_area"
     )
     if jd_raw_text and len(jd_raw_text.strip()) >= 20:
-        with st.spinner(f"🤖 AI ({provider_choice}) sedang memproses teks Job Description..."):
-            try:
-                active_job = DocumentParser.parse_job_description(
-                    jd_raw_text.strip(),
-                    api_key=effective_api_key,
-                    provider=selected_provider,
-                    model_name=effective_model
-                )
-                st.success(f"✅ Berhasil mengekstrak kriteria lowongan: **{active_job['title']}**")
-            except InvalidDocumentError as e:
-                st.error(f"❌ **Format Teks Kurang Lengkap:** {str(e)}")
-                st.warning("💡 **Tips:** Pastikan teks memuat informasi nama posisi, kualifikasi/syarat, atau tanggung jawab pekerjaan.")
-                active_job = None
-            except Exception as e:
-                st.error(f"❌ **Gagal Memproses Teks:** {str(e)}")
-                active_job = None
+        if active_job is None:
+            with st.spinner(f"🤖 AI ({provider_choice}) sedang memproses teks Job Description..."):
+                try:
+                    active_job = DocumentParser.parse_job_description(
+                        jd_raw_text.strip(),
+                        api_key=effective_api_key,
+                        provider=selected_provider,
+                        model_name=effective_model
+                    )
+                    st.success(f"✅ Berhasil mengekstrak kriteria lowongan: **{active_job['title']}**")
+                except InvalidDocumentError as e:
+                    st.error(f"❌ **Format Teks Kurang Lengkap:** {str(e)}")
+                    st.warning("💡 **Tips:** Pastikan teks memuat informasi nama posisi, kualifikasi/syarat, atau tanggung jawab pekerjaan.")
+                    active_job = None
+                except Exception as e:
+                    st.error(f"❌ **Gagal Memproses Teks:** {str(e)}")
+                    active_job = None
     elif jd_raw_text:
         st.warning("⚠️ Teks terlalu pendek. Masukkan informasi posisi dan kualifikasi lowongan secara lebih lengkap.")
-    else:
-        st.info("✍️ Silakan ketik atau tempel teks rincian lowongan pekerjaan pada kotak di atas.")
 
 # Display extracted/active Job Criteria
 if active_job:
