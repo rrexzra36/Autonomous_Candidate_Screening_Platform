@@ -597,7 +597,6 @@ class DocumentParser:
             },
             "education": education_list,
             "work_experience": work_experiences,
-            "skills": all_skills_combined,
             "technical_skills": tech_skills,
             "soft_skills": soft_skills,
             "certifications": certifications
@@ -672,7 +671,6 @@ Struktur JSON yang WAJIB dihasilkan:
   ],
   "technical_skills": ["Daftar Seluruh Technical Skills & Software Asli dari CV"],
   "soft_skills": ["Daftar Seluruh Soft Skills Asli dari CV"],
-  "skills": ["Semua Skill Asli dari CV"],
   "certifications": ["Daftar Sertifikasi & Prestasi Asli jika ada"]
 }}
 """

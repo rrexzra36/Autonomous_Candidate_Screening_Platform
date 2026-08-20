@@ -62,8 +62,8 @@ class CandidateMatcherEngine:
                 knockout_reasons.append(f"Tidak memiliki sertifikasi wajib: '{cert}'.")
 
         # --- TIER 2: Skill & Semantic Matching ---
-        jd_skills = [s.lower() for s in job_desc.get("key_skills", [])]
-        cand_skills = [s.lower() for s in anonymized_cv.get("skills", [])]
+        jd_skills = list(dict.fromkeys([s.lower() for s in (job_desc.get("technical_skills", []) + job_desc.get("soft_skills", []) + job_desc.get("key_skills", []))]))
+        cand_skills = list(dict.fromkeys([s.lower() for s in (anonymized_cv.get("technical_skills", []) + anonymized_cv.get("soft_skills", []) + anonymized_cv.get("skills", []))]))
         
         matched_skills = []
         for s in jd_skills:
@@ -229,9 +229,12 @@ Tanggung Jawab & Deskripsi:
         except ImportError:
             from src.parser import DocumentParser
 
-        # 1. Extract ALL skills from this specific candidate's CV
-        cand_all_skills = cv.get("skills", [])
-        cand_tech, cand_soft = DocumentParser.classify_skills(cand_all_skills)
+        # 1. Extract Technical & Soft skills from this specific candidate's CV
+        cand_tech = cv.get("technical_skills", [])
+        cand_soft = cv.get("soft_skills", [])
+        if not cand_tech and not cand_soft:
+            cand_all_skills = cv.get("skills", [])
+            cand_tech, cand_soft = DocumentParser.classify_skills(cand_all_skills)
 
         # 2. Extract Matched and Missing Skills
         matched_tech, matched_soft = DocumentParser.classify_skills(matched_skills)
