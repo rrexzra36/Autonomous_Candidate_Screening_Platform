@@ -81,6 +81,8 @@ if active_api_key:
 else:
     st.sidebar.info("Local Rule Engine (Offline)")
 
+min_score = st.sidebar.slider("Minimum Shortlist Score Threshold (%):", 0, 100, 60, 5)
+
 enable_blind_cv = st.sidebar.toggle("🛡️ Blind-CV Anonymization", value=True, help="Otomatis menyamarkan PII kandidat sebelum scoring.")
 
 st.sidebar.markdown("**Parameter:**")
@@ -91,8 +93,6 @@ st.sidebar.checkbox("Usia / Umur", value=True, key="chk_age", disabled=not enabl
 st.sidebar.checkbox("Alamat Domisili", value=True, key="chk_address", disabled=not enable_blind_cv)
 st.sidebar.checkbox("Foto Profil", value=True, key="chk_photo", disabled=not enable_blind_cv)
 st.sidebar.checkbox("Universitas / Kampus", value=True, key="chk_univ", disabled=not enable_blind_cv)
-
-min_score = st.sidebar.slider("Minimum Shortlist Score Threshold (%):", 0, 100, 60, 5)
 
 # Active Masked Fields list
 active_masked_fields = []
@@ -321,7 +321,6 @@ if candidates_to_process and active_job:
                     st.markdown("**⚠️ Catatan / Potensi Gap (Cons):**")
                     for con in item["justification"]["cons"]:
                         st.markdown(f"- {con}")
-                st.markdown("---")
 
     with tab2:
         st.subheader("🛡️ Blind-CV Anonymization (Konfigurasi & Audit Bias)")
