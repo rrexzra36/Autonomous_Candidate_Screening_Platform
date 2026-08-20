@@ -440,103 +440,99 @@ class DocumentParser:
 
         # 7. Comprehensive Multi-Level Education Extraction
         education_list = []
-        univ_names_found = []
+        
+        # Match Degree Level and Major dynamically
+        degree_patterns = [
+            (r"(?:bachelor|sarjana|s1)\s+(?:of|in|jurusan|prodi|degree in)?\s*([a-zA-Z\s&/]+?)(?=[,\n\r\|]|\s+(?:with|faculty|tahun|grade|ipk|gpa|\d{4}|$))", "Bachelor Degree (S1)"),
+            (r"(?:master|magister|s2)\s+(?:of|in|jurusan|prodi|degree in)?\s*([a-zA-Z\s&/]+?)(?=[,\n\r\|]|\s+(?:with|faculty|tahun|grade|ipk|gpa|\d{4}|$))", "Master Degree (S2)"),
+            (r"(?:diploma|d3|d4|ahli madya)\s+(?:of|in|jurusan|prodi)?\s*([a-zA-Z\s&/]+?)(?=[,\n\r\|]|\s+(?:with|faculty|tahun|grade|ipk|gpa|\d{4}|$))", "Associate Degree / Diploma"),
+            (r"((?:information systems|computer science|informatics|architecture|civil engineering|mechanical engineering|accounting|management|business administration|graphic design)\s+graduate)", "Bachelor Degree (S1)"),
+            (r"(?:smk|vocational\s+high\s+school)\s*([a-zA-Z0-9\s&/]+?)(?=[,\n\r\|]|\s+(?:majoring|jurusan|tahun|$))", "Vocational High School (SMK)"),
+            (r"(?:sma|high\s+school)\s*([a-zA-Z0-9\s&/]+?)(?=[,\n\r\|]|\s+(?:majoring|jurusan|tahun|$))", "Senior High School (SMA)")
+        ]
+        
+        detected_major = ""
+        detected_degree = "Bachelor's Degree (S1)"
+        for pat, deg_lbl in degree_patterns:
+            m = re.search(pat, text, re.I)
+            if m:
+                detected_degree = deg_lbl
+                if m.groups() and m.group(1):
+                    raw_maj = m.group(1).strip(" :-|")
+                    if len(raw_maj) > 3 and not re.search(r"^\d+$", raw_maj):
+                        detected_major = raw_maj.title()
+                break
 
-        # Check for Universities / Campuses
-        univ_matches = re.finditer(r"((?:Borobudur University|Tarumanagara University|Budi Luhur University|Universitas Budi Luhur|Universitas Indonesia|Institut Teknologi Bandung|Universitas Gadjah Mada|Universitas Trisakti|Universitas Diponegoro|Universitas Sebelas Maret|Institute Of Technology|Universitas|University|Institut|Institute|Politeknik|Polytechnic|Sekolah Tinggi)\s+[a-zA-Z0-9\s\(\)\.\,]+?)(?=[,\n\r]|\s+(?:Department|majoring|jurusan|with|faculty|tahun|grade|ipk|gpa|$))", text, re.I)
-        for um in univ_matches:
-            uname = um.group(1).strip().title()
-            uname_clean = re.sub(r"\s+Department\s+Of.*", "", uname, flags=re.I).strip()
-            if len(uname_clean) > 5 and not any(uname_clean.lower() in x.lower() for x in univ_names_found):
-                univ_names_found.append(uname_clean)
-                degree_name = "Bachelor of Architecture (S1)" if "Architect" in text else "Bachelor's Degree (S1)"
-                period_match = re.search(r"((?:20\d{2}|19\d{2})\s*[\-\–]\s*(?:Present|Sekarang|20\d{2}|19\d{2}))", text[um.end():um.end()+60], re.I)
-                period_str = period_match.group(1).strip() if period_match else "2023 - Present"
-                education_list.append({
-                    "institution": uname_clean,
-                    "degree": degree_name,
-                    "period": period_str
-                })
+        # Check for Universities / Campuses dynamically
+        univ_match = re.search(r"((?:Universitas|University|Institut|Institute|Politeknik|Polytechnic|Sekolah Tinggi|STMIK|SMA|SMK)\s+[a-zA-Z0-9\s\(\)\.\,]+?)(?=[,\n\r]|\s+(?:Department|majoring|jurusan|with|faculty|tahun|grade|ipk|gpa|$))", text, re.I)
+        inst_name = univ_match.group(1).strip().title() if univ_match else "Accredited Higher Education Institution"
+        inst_name = re.sub(r"\s+Department\s+Of.*", "", inst_name, flags=re.I).strip()
 
-        # Check for Vocational High School / SMK
-        smk_matches = re.finditer(r"((?:State Vocational High School|Vocational High School|SMK Negeri|SMK|SMA Negeri|SMA)\s+[a-zA-Z0-9\s\(\)\.\,]+?)(?=[,\n\r]|\s+(?:majoring|jurusan|with|faculty|tahun|grade|$))", text, re.I)
-        for sm in smk_matches:
-            sname = sm.group(1).strip().title()
-            if len(sname) > 3 and not any(sname.lower() in item["institution"].lower() for item in education_list):
-                period_match = re.search(r"((?:20\d{2}|19\d{2})\s*[\-\–]\s*(?:Present|Sekarang|20\d{2}|19\d{2}))", text[sm.end():sm.end()+60], re.I)
-                period_str = period_match.group(1).strip() if period_match else "2018 - 2021"
-                education_list.append({
-                    "institution": sname,
-                    "degree": "Vocational High School (Building Information & Modeling Design)",
-                    "period": period_str
-                })
+        period_match = re.search(r"((?:20\d{2}|19\d{2})\s*[\-\–]\s*(?:Present|Sekarang|20\d{2}|19\d{2}))", text, re.I)
+        period_str = period_match.group(1).strip() if period_match else "2019 - 2023"
 
-        if not education_list:
-            education_list.append({
-                "institution": "Accredited Higher Education Institution",
-                "degree": "Bachelor's Degree (S1)",
-                "period": "2018 - 2022"
-            })
+        if detected_major:
+            degree_str = f"{detected_degree} in {detected_major}"
+        else:
+            degree_str = detected_degree
 
-        # Clean & deduplicate education items
-        unique_edu = []
-        seen_keys = set()
-        for e in education_list:
-            norm_name = re.sub(r"\bstate\b", "", e["institution"], flags=re.I).strip().lower()
-            norm_name = re.sub(r"\s+", " ", norm_name)
-            if norm_name not in seen_keys:
-                seen_keys.add(norm_name)
-                unique_edu.append(e)
-        education_list = unique_edu
+        education_list.append({
+            "institution": inst_name,
+            "degree": degree_str,
+            "major": detected_major if detected_major else "Related Field",
+            "period": period_str
+        })
 
-        # 8. Work Experience & Projects Extraction
+        # 8. Work Experience & Projects Extraction (Dynamic)
         work_experiences = []
-        if re.search(r"PT\.?\s*STRUKTUR\s*INDONESIA", text, re.I):
-            work_experiences.append({
-                "role": "Drafter - Technical Testing",
-                "company": "PT. Struktur Indonesia",
-                "duration_years": 3,
-                "period": "November 2021 - Present",
-                "achievements": "Conducting tender preparation, detailed layout drawings for monitoring sensor placement, testing concrete integrity for LRT Jabodebek, MRT Jakarta, & Pandanduri Dam tunnel."
-            })
-        if re.search(r"(?:FREELANCE\s*PROJECT|JUNIOR\s*ARCHITECT)", text, re.I):
-            work_experiences.append({
-                "role": "Junior Architect (Freelance)",
-                "company": "Freelance Architectural Projects",
-                "duration_years": 1,
-                "period": "March 2021 - September 2021",
-                "achievements": "Drawing and designing interior and exterior space requirements, supervise development projects, 2-storey residential housing design."
-            })
-        if re.search(r"PT\.?\s*Global\s*Citra\s*Prima|Marunda\s*Center", text, re.I):
-            work_experiences.append({
-                "role": "Architect & Drafter",
-                "company": "PT Global Citra Prima / Marunda Center",
-                "duration_years": 2,
-                "period": "Feb 2023 - Present",
-                "achievements": "Detailed architectural drawings for warehouse and workshop facilities, 3D renderings, and site supervision."
-            })
+        exp_roles = [
+            "Data Analyst", "Data Scientist", "Data Engineer", "Software Engineer", "Frontend Developer",
+            "Backend Developer", "Full Stack Developer", "Web Developer", "Machine Learning Engineer",
+            "Architect", "Junior Architect", "Drafter", "Interior Designer", "Civil Engineer",
+            "Quality Assurance", "QA Engineer", "Product Manager", "Project Manager", "Business Analyst",
+            "UI/UX Designer", "Graphic Designer", "Marketing Specialist", "Operations Staff", "Intern"
+        ]
+        
+        found_role = ""
+        for r in exp_roles:
+            if re.search(rf"\b{re.escape(r)}\b", text, re.I):
+                found_role = r
+                break
 
-        exp_match = re.search(r"(\d+)\s*(?:\+|-\d+)?\s*(?:tahun|thn|years|yr)", text, re.I)
-        dur_exp = int(exp_match.group(1)) if exp_match else max(sum(w.get("duration_years", 0) for w in work_experiences), 2)
+        company_match = re.search(r"(?:at|di|pt\.?|cv\.?)\s+([a-zA-Z0-9\s\.\,\-]+?)(?=[,\n\r\|]|\s+(?:from|sejak|tahun|\d{4}|$))", text, re.I)
+        found_company = company_match.group(0).strip().title() if company_match else "Industry & Professional Projects"
 
-        if not work_experiences:
-            work_experiences.append({
-                "role": "Professional Candidate",
-                "company": "Design & Engineering Industry",
-                "duration_years": dur_exp,
-                "period": f"{dur_exp} Years Work Experience",
-                "achievements": text[:250] + "..." if len(text) > 250 else text
-            })
+        exp_years_match = re.search(r"(\d+)\s*(?:\+|-\d+)?\s*(?:tahun|thn|years|yr)", text, re.I)
+        dur_exp = int(exp_years_match.group(1)) if exp_years_match else (2 if "experience" in text.lower() else 1)
 
-        # 9. Skills Discovery (Technical & Soft Skills)
+        exp_period_match = re.search(r"((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|June|July|August|September|October|November|December|\d{4})\s*(?:\d{4})?\s*[\-\–]\s*(?:Present|Sekarang|\d{4}))", text, re.I)
+        exp_period = exp_period_match.group(1).strip() if exp_period_match else f"{dur_exp} Years Professional Experience"
+
+        # Summary or achievement snippet
+        summary_match = re.search(r"(?:summary|profile|about me|tentang saya|pengalaman)[\s\:\-]+([^\n\r]+(?:\n[^\n\r]+){1,3})", text, re.I)
+        achieve_text = summary_match.group(1).strip() if summary_match else text[:250] + "..."
+
+        work_experiences.append({
+            "role": found_role if found_role else "Professional Specialist",
+            "company": found_company,
+            "duration_years": dur_exp,
+            "period": exp_period,
+            "description": achieve_text,
+            "achievements": achieve_text
+        })
+
+        # 9. Skills Discovery (Expanded Comprehensive Modern Taxonomy)
         known_tech_tools = [
             "AutoCAD", "SketchUp", "3ds Max", "Revit", "Adobe Photoshop", "Photoshop", "Illustrator",
-            "Lumion", "Rhino", "Blender", "V-Ray Render", "V-Ray", "ArchiCAD", "Figma", "Canva", "InDesign",
-            "Python", "SQL", "Excel", "Microsoft Office", "SAP", "PLC", "SCADA", "Six Sigma", "ISO 9001",
+            "Lumion", "Rhino", "Blender", "V-Ray", "ArchiCAD", "Figma", "Canva", "InDesign",
+            "Python", "SQL", "PostgreSQL", "MySQL", "MongoDB", "Excel", "Microsoft Excel", "Microsoft Office",
+            "FastAPI", "Flask", "Django", "Tableau", "Power BI", "Pandas", "NumPy", "Scikit-Learn",
+            "Docker", "Git", "GitHub", "AWS", "GCP", "TensorFlow", "PyTorch", "JavaScript", "TypeScript",
+            "React", "Node.js", "HTML", "CSS", "SAP", "PLC", "SCADA", "Six Sigma", "ISO 9001",
             "Quality Control", "Lean Manufacturing", "Kaizen", "5S", "K3 Umum", "Technical Drawing",
             "Architectural Detailing", "Interior Design", "Design & Build", "Building Information Modeling",
             "BIM", "3D Visualization", "Architectural Modeling", "Enscape 3D", "Enscape", "Site Supervision",
-            "Construction Management"
+            "Construction Management", "ETL Pipelines", "Data Automation", "Dashboard Development"
         ]
         known_soft_skills_list = [
             "Teamwork", "Communication Skills", "Communication", "Critical Thinking", "Time Management",
@@ -556,7 +552,7 @@ class DocumentParser:
                 found_soft.append(s)
 
         if not found_tech and not found_soft:
-            found_tech = ["Technical Drawing", "Design Execution"]
+            found_tech = ["Domain Technical Capabilities"]
 
         all_skills_combined = list(dict.fromkeys(found_tech + found_soft))
         tech_skills, soft_skills = DocumentParser.classify_skills(all_skills_combined)
@@ -569,6 +565,7 @@ class DocumentParser:
         # 10. Achievements & Certifications Extraction
         certifications = []
         cert_matches = [
+            "Google Data Analytics", "AWS Certified", "TensorFlow Developer", "Microsoft Certified",
             "Construction Services Development Institute certification test",
             "Structural and Architectural Cluster Competency Certification Test",
             "Network Computer Training Course",
@@ -628,8 +625,9 @@ MANDATORY JSON Structure:
     def _llm_parse_cv(text: str, filename: str, api_key: str, provider: str = "gemini", model_name: str = "gemini-3.5-flash") -> Dict[str, Any]:
         prompt = f"""
 You are an advanced AI CV / Resume Parser. Extract all candidate data COMPLETELY & AUTHENTICALLY into pure JSON format.
-DO NOT TRUNCATE OR OMIT ANY EDUCATION HISTORY OR WORK EXPERIENCES:
+Extract the REAL candidate data present in the document. DO NOT make up, truncate, or omit any education history, work experiences, or skills.
 
+CANDIDATE CV DOCUMENT TEXT:
 {text}
 
 MANDATORY JSON Structure:
@@ -640,24 +638,26 @@ MANDATORY JSON Structure:
     "email": "candidate@email.com",
     "phone": "+6285523692189",
     "gender": "Male / Female / Not Specified",
-    "age": 23,
+    "age": "Not Specified or Number",
     "photo_url": "",
-    "address": "City / Domicile Location (e.g. South Jakarta - Indonesia / Bandung)"
+    "address": "City / Domicile Location"
   }},
   "education": [
     {{
-      "institution": "University / School Name (e.g. Borobudur University)",
-      "degree": "Degree & Major (e.g. Architectural Engineering - S1)",
-      "period": "2023 - Present"
+      "institution": "University / School Name",
+      "degree": "Degree Level (e.g. Bachelor Degree / S1)",
+      "major": "Academic Major / Field of Study (e.g. Information Systems / Architecture)",
+      "period": "Start Year - End Year (e.g. 2020 - 2024)"
     }}
   ],
   "work_experience": [
     {{
-      "role": "Job Title / Role",
-      "company": "Company / Project Name",
-      "duration_years": 3,
-      "period": "Nov 2021 - Present",
-      "achievements": "Summary of duties, testing, or project accomplishments"
+      "role": "Job Title / Position (e.g. Data Automation Intern)",
+      "company": "Company Name / Organization",
+      "duration_years": 2,
+      "period": "Start - End Date (e.g. 2023 - 2024)",
+      "description": "Responsibilities and key accomplishments",
+      "achievements": "Key accomplishments"
     }}
   ],
   "technical_skills": ["List of Technical Skills & Tools from CV"],

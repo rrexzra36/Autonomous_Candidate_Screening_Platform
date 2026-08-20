@@ -495,7 +495,7 @@ if raw_cv_items:
     for item in raw_cv_items:
         fname = item["name"]
         file_bytes = item["bytes"]
-        cv_cache_key = f"{fname}_{len(file_bytes)}"
+        cv_cache_key = f"{fname}_{len(file_bytes)}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
         
         # Check if CV has already been parsed in session memory
         if cv_cache_key in st.session_state["parsed_cv_store"]:
@@ -507,7 +507,10 @@ if raw_cv_items:
             raw_text = DocumentParser.extract_text_from_pdf(file_bytes)
             parsed_cv = DocumentParser.parse_candidate_cv(
                 raw_text,
-                filename=fname
+                filename=fname,
+                api_key=effective_api_key,
+                provider=selected_provider,
+                model_name=effective_model
             )
             st.session_state["parsed_cv_store"][cv_cache_key] = parsed_cv
             candidates_to_process.append(parsed_cv)
