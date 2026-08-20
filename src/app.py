@@ -76,14 +76,10 @@ if provider_choice == "Google Gemini":
 
     # Base modern models
     base_models = [
-        "gemini-2.5-flash",
-        "gemini-2.0-flash",
-        "gemini-2.0-flash-lite",
-        "gemini-3.0-flash",
-        "gemini-3.0-pro",
-        "gemini-2.5-pro",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro",
+        "gemini-3.1-pro-preview",
+        "gemini-3.5-flash",
+        "gemini-3-flash-preview",
+        "gemini-3.1-flash-lite",
         "Input Model Kustom (Manual)"
     ]
     
@@ -126,87 +122,108 @@ else:
     )
     active_api_key = Config.get_active_openai_key(api_key_input)
 
-if active_api_key:
-    st.sidebar.success(f"{provider_choice} (Connected)")
-    if st.sidebar.button("🧪 Uji Koneksi API"):
-        with st.sidebar.status("Menghubungi endpoint AI...", expanded=True) as status_box:
-            try:
-                test_text = None
-                success_model = selected_model
-                last_err = None
-                
-                if selected_provider == "gemini":
-                    # 1. Coba google.genai SDK
-                    try:
-                        from google import genai
-                        client = genai.Client(api_key=active_api_key)
-                        models_to_test = [selected_model, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-pro", "gemini-1.5-flash"]
-                        for m in models_to_test:
-                            if not m: continue
-                            try:
-                                res = client.models.generate_content(
-                                    model=m,
-                                    contents="Katakan 'OK' dalam 1 kata."
-                                )
-                                test_text = res.text
-                                if test_text:
-                                    success_model = m
-                                    break
-                            except Exception as em:
-                                last_err = em
-                    except Exception as ec:
-                        last_err = ec
+# Session State Initialization for Model Connection
+if "api_connected" not in st.session_state:
+    st.session_state["api_connected"] = False
+if "connected_model" not in st.session_state:
+    st.session_state["connected_model"] = ""
+if "connected_provider" not in st.session_state:
+    st.session_state["connected_provider"] = ""
 
-                    # 2. Coba legacy SDK jika belum berhasil
-                    if not test_text:
+if active_api_key:
+    if not st.session_state["api_connected"]:
+        if st.sidebar.button("🔗 Connect to Model", type="primary", use_container_width=True):
+            with st.sidebar.status("Menghubungkan ke model AI...", expanded=True) as status_box:
+                try:
+                    test_text = None
+                    success_model = selected_model
+                    last_err = None
+                    
+                    if selected_provider == "gemini":
                         try:
-                            import google.generativeai as legacy_genai
-                            legacy_genai.configure(api_key=active_api_key)
-                            for m in [selected_model, "gemini-1.5-flash", "gemini-pro"]:
+                            from google import genai
+                            client = genai.Client(api_key=active_api_key)
+                            models_to_test = [selected_model, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-pro", "gemini-1.5-flash"]
+                            for m in models_to_test:
                                 if not m: continue
                                 try:
-                                    mod = legacy_genai.GenerativeModel(m)
-                                    res = mod.generate_content("Katakan 'OK' dalam 1 kata.")
+                                    res = client.models.generate_content(
+                                        model=m,
+                                        contents="Katakan 'OK' dalam 1 kata."
+                                    )
                                     test_text = res.text
                                     if test_text:
                                         success_model = m
                                         break
-                                except Exception as el:
-                                    last_err = el
-                        except Exception as el_setup:
-                            last_err = el_setup
+                                except Exception as em:
+                                    last_err = em
+                        except Exception as ec:
+                            last_err = ec
 
-                    if not test_text and last_err:
-                        raise last_err
+                        if not test_text:
+                            try:
+                                import google.generativeai as legacy_genai
+                                legacy_genai.configure(api_key=active_api_key)
+                                for m in [selected_model, "gemini-1.5-flash", "gemini-pro"]:
+                                    if not m: continue
+                                    try:
+                                        mod = legacy_genai.GenerativeModel(m)
+                                        res = mod.generate_content("Katakan 'OK' dalam 1 kata.")
+                                        test_text = res.text
+                                        if test_text:
+                                            success_model = m
+                                            break
+                                    except Exception as el:
+                                        last_err = el
+                            except Exception as el_setup:
+                                last_err = el_setup
 
-                else:
-                    import openai
-                    client = openai.OpenAI(api_key=active_api_key)
-                    res = client.chat.completions.create(
-                        model=selected_model or "gpt-4o-mini",
-                        messages=[{"role": "user", "content": "Katakan 'OK' dalam 1 kata."}]
-                    )
-                    test_text = res.choices[0].message.content
-                
-                if test_text:
-                    status_box.update(label="✅ Koneksi API Sukses!", state="complete", expanded=False)
-                    st.sidebar.success(f"Berhasil terhubung ke **{success_model}**.")
-                else:
+                        if not test_text and last_err:
+                            raise last_err
+
+                    else:
+                        import openai
+                        client = openai.OpenAI(api_key=active_api_key)
+                        res = client.chat.completions.create(
+                            model=selected_model or "gpt-4o-mini",
+                            messages=[{"role": "user", "content": "Katakan 'OK' dalam 1 kata."}]
+                        )
+                        test_text = res.choices[0].message.content
+                    
+                    if test_text:
+                        st.session_state["api_connected"] = True
+                        st.session_state["connected_model"] = success_model
+                        st.session_state["connected_provider"] = provider_choice
+                        status_box.update(label="✅ Berhasil Terhubung!", state="complete", expanded=False)
+                        st.sidebar.success(f"Terhubung ke **{success_model}**")
+                        st.rerun()
+                    else:
+                        status_box.update(label="❌ Gagal Terhubung", state="error", expanded=True)
+                        st.sidebar.error("❌ Model tidak merespons.")
+                except Exception as e:
+                    err_str = str(e)
+                    st.session_state["api_connected"] = False
                     status_box.update(label="❌ Gagal Terhubung ke API", state="error", expanded=True)
-                    st.sidebar.error("❌ Model tidak merespons.")
-            except Exception as e:
-                err_str = str(e)
-                status_box.update(label="❌ Gagal Terhubung ke API", state="error", expanded=True)
-                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                    st.sidebar.error("⚠️ **Limit Kuota Tercapai (Rate Limit 429):** Kuota request akun Gemini Anda telah habis. Tunggu 1 menit atau buat API key baru gratis di Google AI Studio.")
-                elif "400" in err_str or "API_KEY_INVALID" in err_str:
-                    st.sidebar.error("❌ **API Key Tidak Valid (400):** Periksa kembali karakter API key yang Anda masukkan.")
-                elif "404" in err_str:
-                    st.sidebar.error("❌ **Model Tidak Ditemukan (404):** Silakan pilih model **gemini-2.5-flash** atau **gemini-2.0-flash** pada dropdown.")
-                else:
-                    st.sidebar.error(f"❌ **Detail Error API:**\n`{err_str}`")
+                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                        st.sidebar.error("⚠️ **Limit Kuota (429):** Kuota request akun Anda habis. Tunggu 1 menit atau buat API key baru.")
+                    elif "400" in err_str or "API_KEY_INVALID" in err_str:
+                        st.sidebar.error("❌ **API Key Tidak Valid (400):** Periksa kembali karakter API key yang Anda masukkan.")
+                    elif "404" in err_str:
+                        st.sidebar.error("❌ **Model Tidak Ditemukan (404):** Pilih variasi model lain pada dropdown.")
+                    else:
+                        st.sidebar.error(f"❌ **Detail Error:**\n`{err_str}`")
+
+    else:
+        st.sidebar.success(f"🟢 **Connected:** {st.session_state['connected_provider']}\nModel: `{st.session_state['connected_model']}`")
+        if st.sidebar.button("🔌 Disconnect", use_container_width=True):
+            st.session_state["api_connected"] = False
+            st.session_state["connected_model"] = ""
+            st.session_state["connected_provider"] = ""
+            st.rerun()
+
 else:
-    st.sidebar.info("Local Rule Engine (Offline)")
+    st.session_state["api_connected"] = False
+    st.sidebar.info("⚡ Mode: Local Intelligent Rule Engine (Offline)")
 
 st.sidebar.markdown("---")
 
@@ -235,6 +252,11 @@ if st.session_state.get("chk_photo", True): active_masked_fields.append("photo_u
 if st.session_state.get("chk_address", True): active_masked_fields.append("address")
 if st.session_state.get("chk_univ", True): active_masked_fields.append("university")
 
+# Effective API connection parameters
+is_ai_connected = st.session_state.get("api_connected", False) and bool(active_api_key)
+effective_api_key = active_api_key if is_ai_connected else ""
+effective_model = st.session_state.get("connected_model", selected_model) if is_ai_connected else selected_model
+
 # ==========================================
 # STEP 1: JOB DESCRIPTION (KRITERIA LOWONGAN)
 # ==========================================
@@ -260,9 +282,9 @@ if jd_input_mode == "📄 Upload Dokumen PDF":
                 jd_text = DocumentParser.extract_text_from_pdf(uploaded_jd_pdf.getvalue())
                 active_job = DocumentParser.parse_job_description(
                     jd_text,
-                    api_key=active_api_key,
+                    api_key=effective_api_key,
                     provider=selected_provider,
-                    model_name=selected_model
+                    model_name=effective_model
                 )
                 st.success(f"✅ Berhasil mengekstrak kriteria lowongan: **{active_job['title']}**")
             except EmptyPDFError as e:
@@ -297,9 +319,9 @@ else:
             try:
                 active_job = DocumentParser.parse_job_description(
                     jd_raw_text.strip(),
-                    api_key=active_api_key,
+                    api_key=effective_api_key,
                     provider=selected_provider,
-                    model_name=selected_model
+                    model_name=effective_model
                 )
                 st.success(f"✅ Berhasil mengekstrak kriteria lowongan: **{active_job['title']}**")
             except InvalidDocumentError as e:
@@ -369,9 +391,9 @@ if uploaded_cv_files:
                 parsed_cv = DocumentParser.parse_candidate_cv(
                     raw_text,
                     filename=cv_file.name,
-                    api_key=active_api_key,
+                    api_key=effective_api_key,
                     provider=selected_provider,
-                    model_name=selected_model
+                    model_name=effective_model
                 )
                 candidates_to_process.append(parsed_cv)
             except EmptyPDFError:
@@ -398,9 +420,9 @@ st.markdown("---")
 # ==========================================
 if candidates_to_process and active_job:
     matcher = CandidateMatcherEngine(
-        api_key=active_api_key,
+        api_key=effective_api_key,
         provider=selected_provider,
-        model_name=selected_model
+        model_name=effective_model
     )
     evaluated_results = []
 
@@ -443,8 +465,6 @@ if candidates_to_process and active_job:
                 col_a, col_b = st.columns(2)
                 col_a.markdown(f"📌 **Status Rekomendasi:** `{item['status']}`")
                 col_b.markdown(f"🎯 **Kesesuaian Skill:** `{item['score_breakdown']['skill_match']}%`")
-                if item.get("eval_source"):
-                    st.caption(f"⚡ *Engine Analisis:* `{item['eval_source']}`")
                 
                 with st.expander("Review"):
                     active_profile = item["anonymized_cv"] if enable_blind_cv else item["raw_cv"]
