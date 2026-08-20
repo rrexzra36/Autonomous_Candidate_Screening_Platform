@@ -83,23 +83,52 @@ if active_api_key:
             try:
                 test_text = None
                 success_model = selected_model
+                last_err = None
+                
                 if selected_provider == "gemini":
-                    from google import genai
-                    client = genai.Client(api_key=active_api_key)
-                    models_to_test = [selected_model, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-pro", "gemini-1.5-flash"]
-                    for m in models_to_test:
-                        if not m: continue
+                    # 1. Coba google.genai SDK
+                    try:
+                        from google import genai
+                        client = genai.Client(api_key=active_api_key)
+                        models_to_test = [selected_model, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-pro", "gemini-1.5-flash"]
+                        for m in models_to_test:
+                            if not m: continue
+                            try:
+                                res = client.models.generate_content(
+                                    model=m,
+                                    contents="Katakan 'OK' dalam 1 kata."
+                                )
+                                test_text = res.text
+                                if test_text:
+                                    success_model = m
+                                    break
+                            except Exception as em:
+                                last_err = em
+                    except Exception as ec:
+                        last_err = ec
+
+                    # 2. Coba legacy SDK jika belum berhasil
+                    if not test_text:
                         try:
-                            res = client.models.generate_content(
-                                model=m,
-                                contents="Katakan 'OK' dalam 1 kata."
-                            )
-                            test_text = res.text
-                            if test_text:
-                                success_model = m
-                                break
-                        except Exception:
-                            continue
+                            import google.generativeai as legacy_genai
+                            legacy_genai.configure(api_key=active_api_key)
+                            for m in [selected_model, "gemini-1.5-flash", "gemini-pro"]:
+                                if not m: continue
+                                try:
+                                    mod = legacy_genai.GenerativeModel(m)
+                                    res = mod.generate_content("Katakan 'OK' dalam 1 kata.")
+                                    test_text = res.text
+                                    if test_text:
+                                        success_model = m
+                                        break
+                                except Exception as el:
+                                    last_err = el
+                        except Exception as el_setup:
+                            last_err = el_setup
+
+                    if not test_text and last_err:
+                        raise last_err
+
                 else:
                     import openai
                     client = openai.OpenAI(api_key=active_api_key)
@@ -114,7 +143,7 @@ if active_api_key:
                     st.sidebar.success(f"Berhasil terhubung ke **{success_model}**.")
                 else:
                     status_box.update(label="❌ Gagal Terhubung ke API", state="error", expanded=True)
-                    st.sidebar.error("❌ Model tidak merespons. Silakan coba pilih variasi model lain (misal: gemini-2.5-flash / gemini-2.0-flash).")
+                    st.sidebar.error("❌ Model tidak merespons.")
             except Exception as e:
                 err_str = str(e)
                 status_box.update(label="❌ Gagal Terhubung ke API", state="error", expanded=True)
@@ -123,9 +152,9 @@ if active_api_key:
                 elif "400" in err_str or "API_KEY_INVALID" in err_str:
                     st.sidebar.error("❌ **API Key Tidak Valid (400):** Periksa kembali karakter API key yang Anda masukkan.")
                 elif "404" in err_str:
-                    st.sidebar.error(f"❌ **Model Tidak Ditemukan (404):** Silakan pilih model generasi baru seperti **gemini-2.5-flash** atau **gemini-2.0-flash** pada dropdown.")
+                    st.sidebar.error("❌ **Model Tidak Ditemukan (404):** Silakan pilih model **gemini-2.5-flash** atau **gemini-2.0-flash** pada dropdown.")
                 else:
-                    st.sidebar.error(f"❌ **Error API:** {err_str}")
+                    st.sidebar.error(f"❌ **Detail Error API:**\n`{err_str}`")
 else:
     st.sidebar.info("Local Rule Engine (Offline)")
 
