@@ -1,7 +1,7 @@
-"""
+﻿"""
 Blind-CV Anonymizer Engine (Bias Mitigation Layer)
-Bertanggung jawab menghapus Person Identifiable Information (PII) 
-secara fleksibel berdasarkan checklist pilihan pengguna pada seluruh struktur profil CV.
+Responsible for dynamically masking Personally Identifiable Information (PII) 
+based on granular user configuration across all CV profile fields.
 """
 
 from typing import Dict, Any, List
@@ -10,7 +10,7 @@ import copy
 class BlindCVAnonymizer:
     """
     Anonymizes sensitive PII fields from candidate CV data
-    to enforce ethical, unbiased screening with granular field control.
+    to enforce ethical, merit-based, and unbiased candidate screening.
     """
     
     DEFAULT_PII_FIELDS = [
@@ -62,7 +62,7 @@ class BlindCVAnonymizer:
             masked_info["photo_url"] = ""
             
         if "address" in enabled_fields:
-            masked_info["address"] = "Regional (Masked)"
+            masked_info["address"] = "Regional Location (Masked)"
             
         anonymized["personal_info"] = masked_info
         

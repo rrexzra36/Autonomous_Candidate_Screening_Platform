@@ -33,10 +33,10 @@ st.markdown("---")
 # ==========================================
 # SIDEBAR CONFIGURATION (AI PROVIDER & MODEL)
 # ==========================================
-st.sidebar.header("⚙️ Konfigurasi AI & Model")
+st.sidebar.header("⚙️ AI & Model Configuration")
 
 provider_choice = st.sidebar.selectbox(
-    "Pilih AI Provider:",
+    "Select AI Provider:",
     ["Google Gemini", "OpenAI"],
     index=0
 )
@@ -49,7 +49,7 @@ if provider_choice == "Google Gemini":
         "Google Gemini API Key:",
         value=env_gemini_key,
         type="password",
-        help="Dapatkan Gemini API Key gratis di https://aistudio.google.com/"
+        help="Get your free Gemini API Key at https://aistudio.google.com/"
     )
     active_api_key = Config.get_active_gemini_key(api_key_input)
 
@@ -59,18 +59,18 @@ if provider_choice == "Google Gemini":
         "gemini-3.5-flash",
         "gemini-3-flash-preview",
         "gemini-3.1-flash-lite",
-        "Input Model Kustom (Manual)"
+        "Input Custom Model (Manual)"
     ]
 
     selected_model_choice = st.sidebar.selectbox(
-        "Pilih Model Gemini:",
+        "Select Gemini Model:",
         model_options,
         index=0,
-        help="Pilih model Gemini versi 3 atau pilih 'Input Model Kustom (Manual)' untuk mengetik nama model sendiri."
+        help="Select a Gemini version 3 model or choose 'Input Custom Model (Manual)' to specify your own model name."
     )
     
-    if selected_model_choice == "Input Model Kustom (Manual)":
-        custom_model = st.sidebar.text_input("Ketik Nama Model Gemini:", value="gemini-3.5-flash")
+    if selected_model_choice == "Input Custom Model (Manual)":
+        custom_model = st.sidebar.text_input("Type Gemini Model Name:", value="gemini-3.5-flash")
         selected_model = custom_model.strip() if custom_model.strip() else "gemini-3.5-flash"
     else:
         selected_model = selected_model_choice
@@ -79,10 +79,10 @@ else:
     selected_provider = "openai"
     model_options = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"]
     selected_model = st.sidebar.selectbox(
-        "Pilih Model OpenAI:",
+        "Select OpenAI Model:",
         model_options,
         index=0,
-        help="gpt-4o-mini: Cepat & efisien biaya. gpt-4o: Flagship reasoning."
+        help="gpt-4o-mini: Fast & cost-effective. gpt-4o: Flagship reasoning."
     )
     
     env_openai_key = Config.OPENAI_API_KEY
@@ -90,7 +90,7 @@ else:
         "OpenAI API Key:",
         value=env_openai_key,
         type="password",
-        help="Dapatkan OpenAI API Key di https://platform.openai.com/api-keys"
+        help="Get your OpenAI API Key at https://platform.openai.com/api-keys"
     )
     active_api_key = Config.get_active_openai_key(api_key_input)
 
@@ -105,7 +105,7 @@ if "connected_provider" not in st.session_state:
 if active_api_key:
     if not st.session_state["api_connected"]:
         if st.sidebar.button("🔗 Connect to Model", type="primary", use_container_width=True):
-            with st.spinner("Menghubungkan ke model AI..."):
+            with st.spinner("Connecting to AI model..."):
                 try:
                     test_text = None
                     success_model = selected_model
@@ -117,7 +117,7 @@ if active_api_key:
                             client = genai.Client(api_key=active_api_key)
                             res = client.models.generate_content(
                                 model=selected_model,
-                                contents="Katakan 'OK' dalam 1 kata."
+                                contents="Say 'OK' in 1 word."
                             )
                             test_text = res.text
                         except Exception as ec:
@@ -128,7 +128,7 @@ if active_api_key:
                                 import google.generativeai as legacy_genai
                                 legacy_genai.configure(api_key=active_api_key)
                                 mod = legacy_genai.GenerativeModel(selected_model)
-                                res = mod.generate_content("Katakan 'OK' dalam 1 kata.")
+                                res = mod.generate_content("Say 'OK' in 1 word.")
                                 test_text = res.text
                             except Exception as el:
                                 last_err = el
@@ -141,7 +141,7 @@ if active_api_key:
                         client = openai.OpenAI(api_key=active_api_key)
                         res = client.chat.completions.create(
                             model=selected_model or "gpt-4o-mini",
-                            messages=[{"role": "user", "content": "Katakan 'OK' dalam 1 kata."}]
+                            messages=[{"role": "user", "content": "Say 'OK' in 1 word."}]
                         )
                         test_text = res.choices[0].message.content
                     
@@ -149,24 +149,24 @@ if active_api_key:
                         st.session_state["api_connected"] = True
                         st.session_state["connected_model"] = success_model
                         st.session_state["connected_provider"] = provider_choice
-                        st.sidebar.success(f"✅ Berhasil terhubung ke **{success_model}**")
+                        st.sidebar.success(f"✅ Successfully connected to **{success_model}**")
                         st.rerun()
                     else:
-                        st.sidebar.error("❌ Model tidak merespons.")
+                        st.sidebar.error("❌ Model did not respond.")
                 except Exception as e:
                     err_str = str(e)
                     st.session_state["api_connected"] = False
                     if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                        st.sidebar.error("⚠️ **Limit Kuota (429):** Kuota request akun Anda habis. Tunggu 1 menit atau buat API key baru.")
+                        st.sidebar.error("⚠️ **Quota Limit (429):** Account quota exhausted. Please wait 1 minute or generate a new API key.")
                     elif "400" in err_str or "API_KEY_INVALID" in err_str:
-                        st.sidebar.error("❌ **API Key Tidak Valid (400):** Periksa kembali karakter API key yang Anda masukkan.")
+                        st.sidebar.error("❌ **Invalid API Key (400):** Please check the API key you entered.")
                     elif "404" in err_str:
-                        st.sidebar.error(f"❌ **Model '{selected_model}' Tidak Ditemukan (404):** Periksa ketersediaan model pada akun Anda atau gunakan 'Input Model Kustom'.")
+                        st.sidebar.error(f"❌ **Model '{selected_model}' Not Found (404):** Check model availability or use 'Input Custom Model (Manual)'.")
                     else:
-                        st.sidebar.error(f"❌ **Detail Error:** {err_str}")
+                        st.sidebar.error(f"❌ **Error Details:** {err_str}")
 
     else:
-        st.sidebar.success(f"🟢 **Connected**")
+        st.sidebar.success(f"🟢 **Connected to {st.session_state.get('connected_model')}**")
         if st.sidebar.button("🔌 Disconnect", use_container_width=True):
             st.session_state["api_connected"] = False
             st.session_state["connected_model"] = ""
@@ -187,9 +187,9 @@ effective_api_key = active_api_key if is_ai_connected else ""
 effective_model = st.session_state.get("connected_model", selected_model) if is_ai_connected else selected_model
 
 # ==========================================
-# STEP 1: JOB DESCRIPTION (KRITERIA LOWONGAN)
+# STEP 1: JOB DESCRIPTION (POSITION CRITERIA)
 # ==========================================
-st.header("1️⃣ Pengaturan Posisi & Kriteria Lowongan (Job Description)")
+st.header("1️⃣ Job Position & Criteria Setup (Job Description)")
 
 if "jd_uploader_key" not in st.session_state:
     st.session_state["jd_uploader_key"] = 0
@@ -197,9 +197,9 @@ if "drive_jd_file" not in st.session_state:
     st.session_state["drive_jd_file"] = None
 
 tab_jd_pdf, tab_jd_drive, tab_jd_text = st.tabs([
-    "📤 Upload Berkas PDF Manual", 
-    "📁 Impor dari Google Drive", 
-    "✍️ Ketik / Tempel Teks Langsung"
+    "📤 Manual PDF Upload", 
+    "📁 Import from Google Drive", 
+    "✍️ Type / Paste Text Directly"
 ])
 
 active_job = None
@@ -207,21 +207,21 @@ active_job = None
 with tab_jd_pdf:
     col_jd_title, col_jd_reset = st.columns([3, 1], vertical_alignment="center")
     with col_jd_title:
-        st.markdown("**Unggah Dokumen PDF Lowongan Kerja (Job Description):**")
+        st.markdown("**Upload Job Description PDF Document:**")
     with col_jd_reset:
-        if st.button("🗑️ Reset PDF JD", use_container_width=True, help="Klik untuk mereset berkas PDF Job Description."):
+        if st.button("🗑️ Reset PDF", use_container_width=True, help="Click to reset the uploaded Job Description PDF."):
             st.session_state["jd_uploader_key"] += 1
             st.session_state["drive_jd_file"] = None
             st.rerun()
 
     uploaded_jd_pdf = st.file_uploader(
-        "Upload Dokumen PDF Job Description:",
+        "Upload Job Description PDF Document:",
         type=["pdf"],
         key=f"jd_pdf_uploader_{st.session_state['jd_uploader_key']}",
         label_visibility="collapsed"
     )
     if uploaded_jd_pdf is not None:
-        with st.spinner(f"🤖 AI ({provider_choice}) sedang membaca & memvalidasi PDF Job Description..."):
+        with st.spinner(f"🤖 AI ({provider_choice}) is reading & validating the Job Description PDF..."):
             try:
                 jd_text = DocumentParser.extract_text_from_pdf(uploaded_jd_pdf.getvalue())
                 active_job = DocumentParser.parse_job_description(
@@ -230,58 +230,58 @@ with tab_jd_pdf:
                     provider=selected_provider,
                     model_name=effective_model
                 )
-                st.success(f"✅ Berhasil mengekstrak kriteria lowongan: **{active_job['title']}**")
+                st.success(f"✅ Successfully extracted job criteria: **{active_job['title']}**")
             except EmptyPDFError as e:
-                st.error(f"❌ **File PDF Tidak Dapat Dibaca / Kosong:** {str(e)}")
-                st.info("💡 **Solusi:** Pastikan berkas PDF memiliki teks digital (bukan hasil scan/foto tanpa layer OCR teks).")
+                st.error(f"❌ **Unreadable / Empty PDF File:** {str(e)}")
+                st.info("💡 **Solution:** Ensure the PDF contains digital text (not a scanned image without OCR text).")
                 active_job = None
             except InvalidDocumentError as e:
-                st.error(f"❌ **Dokumen Tidak Sesuai:** {str(e)}")
-                st.warning("💡 **Tips:** Pastikan berkas yang diunggah benar-benar memuat informasi lowongan kerja, kualifikasi/syarat, atau deskripsi pekerjaan.")
+                st.error(f"❌ **Invalid Document:** {str(e)}")
+                st.warning("💡 **Tip:** Ensure the uploaded document contains genuine job vacancy requirements or responsibilities.")
                 active_job = None
             except Exception as e:
-                st.error(f"❌ **Gagal Memproses PDF:** {str(e)}")
+                st.error(f"❌ **Failed to Process PDF:** {str(e)}")
                 active_job = None
 
 with tab_jd_drive:
-    st.markdown("**Impor Berkas Lowongan (Job Description) dari Google Drive:**")
-    st.caption("💡 Mendukung tautan **1 file PDF spesifik** atau **folder Google Drive publik** yang memuat dokumen Job Description.")
+    st.markdown("**Import Job Description from Google Drive:**")
+    st.caption("💡 Supports a **specific single PDF file link** or a **public Google Drive folder** containing job vacancy documents.")
     
     col_jd_dr_in, col_jd_dr_btn = st.columns([3, 1], vertical_alignment="bottom")
     with col_jd_dr_in:
         drive_jd_url = st.text_input(
-            "Tautan (URL) Job Description Google Drive:",
-            placeholder="Contoh: https://drive.google.com/file/d/... atau https://drive.google.com/drive/folders/...",
-            help="Salin dan tempelkan link file atau folder Google Drive yang berisi dokumen lowongan kerja.",
+            "Google Drive Job Description URL / Link:",
+            placeholder="e.g., https://drive.google.com/file/d/... or https://drive.google.com/drive/folders/...",
+            help="Copy and paste the Google Drive file or folder link containing the job description document.",
             key="drive_jd_input"
         )
     with col_jd_dr_btn:
-        if st.button("📥 Impor Lowongan", type="primary", use_container_width=True):
+        if st.button("📥 Import Job from Drive", type="primary", use_container_width=True):
             if drive_jd_url and drive_jd_url.strip():
-                with st.spinner("⏳ Menghubungi Google Drive & mengunduh berkas Job Description..."):
+                with st.spinner("⏳ Connecting to Google Drive & downloading Job Description..."):
                     jd_files, err = GoogleDriveImporter.fetch_pdf_files_from_drive(drive_jd_url)
                     if err:
                         st.error(err)
                         st.session_state["drive_jd_file"] = None
                     else:
                         st.session_state["drive_jd_file"] = jd_files[0]
-                        st.success(f"✅ Berhasil mengimpor berkas [{jd_files[0]['name']}] dari Google Drive.")
+                        st.success(f"✅ Successfully imported [{jd_files[0]['name']}] from Google Drive.")
                         st.rerun()
             else:
-                st.warning("⚠️ Masukkan tautan Google Drive terlebih dahulu.")
+                st.warning("⚠️ Please enter a Google Drive link first.")
 
     if st.session_state.get("drive_jd_file"):
         jd_f = st.session_state["drive_jd_file"]
         col_jdt, col_jdc = st.columns([3, 1], vertical_alignment="center")
         with col_jdt:
-            st.info(f"📄 **Berkas Terpilih dari Drive:** `{jd_f['name']}` ({round(jd_f['size']/1024, 1)} KB)")
+            st.info(f"📄 **Selected Drive File:** `{jd_f['name']}` ({round(jd_f['size']/1024, 1)} KB)")
         with col_jdc:
-            if st.button("🗑️ Reset Berkas Drive", key="btn_reset_jd_drive", use_container_width=True):
+            if st.button("🗑️ Reset Drive File", key="btn_reset_jd_drive", use_container_width=True):
                 st.session_state["drive_jd_file"] = None
                 st.rerun()
         
         if active_job is None:
-            with st.spinner(f"🤖 AI ({provider_choice}) sedang memvalidasi Job Description dari Google Drive..."):
+            with st.spinner(f"🤖 AI ({provider_choice}) is validating the Job Description from Google Drive..."):
                 try:
                     jd_text = DocumentParser.extract_text_from_pdf(jd_f["bytes"])
                     active_job = DocumentParser.parse_job_description(
@@ -290,35 +290,35 @@ with tab_jd_drive:
                         provider=selected_provider,
                         model_name=effective_model
                     )
-                    st.success(f"✅ Berhasil mengekstrak kriteria lowongan: **{active_job['title']}**")
+                    st.success(f"✅ Successfully extracted job criteria: **{active_job['title']}**")
                 except EmptyPDFError as e:
-                    st.error(f"❌ **File PDF Tidak Dapat Dibaca / Kosong:** {str(e)}")
+                    st.error(f"❌ **Unreadable / Empty PDF File:** {str(e)}")
                     active_job = None
                 except InvalidDocumentError as e:
-                    st.error(f"❌ **Dokumen Tidak Sesuai:** {str(e)}")
+                    st.error(f"❌ **Invalid Document:** {str(e)}")
                     active_job = None
                 except Exception as e:
-                    st.error(f"❌ **Gagal Memproses Dokumen:** {str(e)}")
+                    st.error(f"❌ **Failed to Process Document:** {str(e)}")
                     active_job = None
 
 with tab_jd_text:
-    st.markdown("**Ketik atau Tempel Rincian Lowongan Kerja:**")
+    st.markdown("**Type or Paste Job Description Text Directly:**")
     jd_raw_text = st.text_area(
-        "Teks Rincian Lowongan Kerja:",
+        "Job Description Text:",
         height=220,
         placeholder=(
-            "Contoh:\n"
-            "Posisi: Junior Architect\n"
-            "Jurusan: Architecture, Interior Design, or a related field\n"
+            "Example:\n"
+            "Position: Junior Architect\n"
+            "Major: Architecture, Interior Design, or a related field\n"
             "Requirements: Minimum 2 years experience in design and build, AutoCAD, SketchUp, Revit, Technical Drawing...\n"
-            "Responsibilities: To support project execution and design coordination..."
+            "Responsibilities: Support project execution, 3D visualization, and site supervision..."
         ),
         key="jd_text_area",
         label_visibility="collapsed"
     )
     if jd_raw_text and len(jd_raw_text.strip()) >= 20:
         if active_job is None:
-            with st.spinner(f"🤖 AI ({provider_choice}) sedang memproses teks Job Description..."):
+            with st.spinner(f"🤖 AI ({provider_choice}) is processing Job Description text..."):
                 try:
                     active_job = DocumentParser.parse_job_description(
                         jd_raw_text.strip(),
@@ -326,24 +326,24 @@ with tab_jd_text:
                         provider=selected_provider,
                         model_name=effective_model
                     )
-                    st.success(f"✅ Berhasil mengekstrak kriteria lowongan: **{active_job['title']}**")
+                    st.success(f"✅ Successfully extracted job criteria: **{active_job['title']}**")
                 except InvalidDocumentError as e:
-                    st.error(f"❌ **Format Teks Kurang Lengkap:** {str(e)}")
-                    st.warning("💡 **Tips:** Pastikan teks memuat informasi nama posisi, kualifikasi/syarat, atau tanggung jawab pekerjaan.")
+                    st.error(f"❌ **Incomplete Text Format:** {str(e)}")
+                    st.warning("💡 **Tip:** Ensure text includes position title, requirements, or responsibilities.")
                     active_job = None
                 except Exception as e:
-                    st.error(f"❌ **Gagal Memproses Teks:** {str(e)}")
+                    st.error(f"❌ **Failed to Process Text:** {str(e)}")
                     active_job = None
     elif jd_raw_text:
-        st.warning("⚠️ Teks terlalu pendek. Masukkan informasi posisi dan kualifikasi lowongan secara lebih lengkap.")
+        st.warning("⚠️ Text is too short. Please provide comprehensive job description details.")
 
 # Display extracted/active Job Criteria
 if active_job:
-    with st.expander(f"📋 Rincian Kriteria Teridentifikasi: **{active_job['title']}**", expanded=True):
-        st.markdown(f"**Posisi:** {active_job.get('title', 'Posisi Pekerjaan')}")
-        st.markdown(f"**Jurusan/ Program Studi:** {active_job.get('major', active_job.get('department', 'Semua Jurusan Terkait'))}")
-        st.markdown(f"**Min. Pendidikan:** {active_job['hard_requirements'].get('min_education', 'S1')}")
-        st.markdown(f"**Min. Pengalaman:** {active_job['hard_requirements'].get('min_experience_years', 1)} Tahun")
+    with st.expander(f"📋 Identified Criteria Summary: **{active_job['title']}**", expanded=True):
+        st.markdown(f"**Position:** {active_job.get('title', 'Professional Role')}")
+        st.markdown(f"**Required Major / Discipline:** {active_job.get('major', active_job.get('department', 'All Related Disciplines'))}")
+        st.markdown(f"**Min. Education:** {active_job['hard_requirements'].get('min_education', 'Bachelor Degree')}")
+        st.markdown(f"**Min. Experience:** {active_job['hard_requirements'].get('min_experience_years', 1)} Years")
         
         t_skills = active_job.get('technical_skills', [])
         s_skills = active_job.get('soft_skills', [])
@@ -352,46 +352,44 @@ if active_job:
             
         st.markdown(f"**Technical Skills:** {', '.join(t_skills) if t_skills else '-'}")
         st.markdown(f"**Soft Skills:** {', '.join(s_skills) if s_skills else '-'}")
-        st.markdown(f"**Tanggung Jawab (Responsibilities):**\n\n{active_job.get('responsibilities', active_job.get('description', ''))}")
+        st.markdown(f"**Responsibilities:**\n\n{active_job.get('responsibilities', active_job.get('description', ''))}")
 
 st.markdown("---")
 
 # ==========================================
-# STEP 2: CV KANDIDAT (UPLOAD / INGESTION)
+# STEP 2: CANDIDATE CV INGESTION & UPLOAD
 # ==========================================
-st.header("2️⃣ Pengumpulan & Upload CV Kandidat")
+st.header("2️⃣ Candidate CV Ingestion & Upload")
 
 # ==========================================
-# PROTOKOL ANTI-BIAS & PRIVASI (BLIND-CV)
+# ANTI-BIAS & PRIVACY PROTOCOL (BLIND-CV)
 # ==========================================
 active_masked_fields = []
 
 with st.container(border=True):
     col_blind_title, col_blind_badge = st.columns([3, 2])
     with col_blind_title:
-        st.markdown("#### 🛡️ Blind-CV Anonymization")
         enable_blind_cv = st.toggle(
             "Blind-CV Anonymization",
             value=True,
-            help="Otomatis menyamarkan informasi pribadi sensitif (PII) sebelum dievaluasi AI guna memastikan penilaian 100% berbasis keahlian (merit-based)."
+            help="Automatically masks sensitive Personally Identifiable Information (PII) before AI evaluation to ensure 100% merit-based scoring."
         )
 
     if enable_blind_cv:
-        
-        st.markdown("**Pilih Parameter Identitas yang Ingin Disamarkan:**")
+        st.markdown("**Select Personally Identifiable Information (PII) to Mask:**")
         col_c1, col_c2, col_c3, col_c4 = st.columns(4)
         with col_c1:
-            if st.checkbox("Nama Lengkap", value=True, key="chk_name"): active_masked_fields.append("full_name")
-            if st.checkbox("Email", value=True, key="chk_email"): active_masked_fields.append("email")
+            if st.checkbox("Full Name", value=True, key="chk_name"): active_masked_fields.append("full_name")
+            if st.checkbox("Email Address", value=True, key="chk_email"): active_masked_fields.append("email")
         with col_c2:
             if st.checkbox("Gender", value=True, key="chk_gender"): active_masked_fields.append("gender")
-            if st.checkbox("Usia", value=True, key="chk_age"): active_masked_fields.append("age")
+            if st.checkbox("Age", value=True, key="chk_age"): active_masked_fields.append("age")
         with col_c3:
-            if st.checkbox("Domisili", value=True, key="chk_address"): active_masked_fields.append("address")
-            if st.checkbox("Foto Profil", value=True, key="chk_photo"): active_masked_fields.append("photo_url")
+            if st.checkbox("Domicile / Address", value=True, key="chk_address"): active_masked_fields.append("address")
+            if st.checkbox("Profile Photo", value=True, key="chk_photo"): active_masked_fields.append("photo_url")
         with col_c4:
-            if st.checkbox("Universitas", value=True, key="chk_univ"): active_masked_fields.append("university")
-            if st.checkbox("Nomor Telepon", value=True, key="chk_phone"): active_masked_fields.append("phone")
+            if st.checkbox("University / Institution", value=True, key="chk_univ"): active_masked_fields.append("university")
+            if st.checkbox("Phone Number", value=True, key="chk_phone"): active_masked_fields.append("phone")
 
 if "cv_uploader_key" not in st.session_state:
     st.session_state["cv_uploader_key"] = 0
@@ -409,16 +407,16 @@ raw_cv_items = []
 with tab_upload:
     col_up_title, col_clear_btn = st.columns([3, 1], vertical_alignment="center")
     with col_up_title:
-        st.markdown("**Unggah Dokumen CV Kandidat (Multiple PDF):**")
+        st.markdown("**Upload Candidate CV Documents (Multiple PDF):**")
     with col_clear_btn:
-        if st.button("🗑️ Hapus Semua CV", use_container_width=True, help="Klik untuk menghapus/mereset seluruh berkas CV yang telah diunggah."):
+        if st.button("🗑️ Clear All CVs", use_container_width=True, help="Click to clear and reset all uploaded candidate CV files."):
             st.session_state["cv_uploader_key"] += 1
             st.session_state["parsed_cv_store"] = {}
             st.session_state["eval_results_store"] = {}
             st.rerun()
 
     uploaded_cv_files = st.file_uploader(
-        "Pilih atau drag & drop file PDF CV kandidat:",
+        "Select or drag & drop candidate CV PDF files:",
         type=["pdf"],
         accept_multiple_files=True,
         key=f"cv_uploader_{st.session_state['cv_uploader_key']}",
@@ -429,39 +427,39 @@ with tab_upload:
             raw_cv_items.append({"name": f.name, "bytes": f.getvalue()})
 
 with tab_drive:
-    st.markdown("**Impor Berkas CV dari Google Drive (Folder / 1 File Spesifik):**")
-    st.caption("💡 Mendukung tautan **Folder** (multi-CV) maupun tautan **1 File PDF spesifik**. Pastikan izin akses telah diatur ke **'Anyone with the link can view'**.")
+    st.markdown("**Import Candidate CVs from Google Drive (Folder / Specific Single File):**")
+    st.caption("💡 Supports **Google Drive Folder** (multi-CV ingestion) or a **specific single PDF file link**. Ensure access is set to **'Anyone with the link can view'**.")
     
     col_dr_in, col_dr_btn = st.columns([3, 1])
     with col_dr_in:
         drive_folder_url = st.text_input(
-            "Tautan (URL) Folder / File Google Drive:",
-            placeholder="Contoh: https://drive.google.com/drive/folders/... atau https://drive.google.com/file/d/...",
-            help="Salin dan tempelkan link folder atau link file Google Drive Anda di sini.",
+            "Google Drive Folder / File URL:",
+            placeholder="e.g., https://drive.google.com/drive/folders/... or https://drive.google.com/file/d/...",
+            help="Copy and paste your Google Drive folder or file link here.",
             key="drive_folder_input"
         )
     with col_dr_btn:
         st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-        if st.button("📥 Impor dari Drive", type="primary", use_container_width=True):
+        if st.button("📥 Import from Drive", type="primary", use_container_width=True):
             if drive_folder_url and drive_folder_url.strip():
-                with st.spinner("⏳ Menghubungi Google Drive & mengunduh berkas PDF..."):
+                with st.spinner("⏳ Connecting to Google Drive & downloading PDF documents..."):
                     files, err = GoogleDriveImporter.fetch_pdf_files_from_drive(drive_folder_url)
                     if err:
                         st.error(err)
                     else:
                         st.session_state["drive_cv_files"] = files
-                        st.success(f"✅ Berhasil mengimpor {len(files)} berkas PDF dari Google Drive.")
+                        st.success(f"✅ Successfully imported {len(files)} PDF documents from Google Drive.")
                         st.rerun()
             else:
-                st.warning("⚠️ Masukkan tautan folder Google Drive terlebih dahulu.")
+                st.warning("⚠️ Please enter a Google Drive link first.")
 
     if st.session_state.get("drive_cv_files"):
         d_files = st.session_state["drive_cv_files"]
         col_dt, col_dc = st.columns([3, 1])
         with col_dt:
-            st.write(f"📁 **{len(d_files)} berkas CV aktif dari Google Drive.**")
+            st.write(f"📁 **{len(d_files)} active CV files from Google Drive.**")
         with col_dc:
-            if st.button("🗑️ Reset Drive Files", help="Hapus berkas yang diimpor dari Google Drive."):
+            if st.button("🗑️ Reset Drive Files", help="Clear files imported from Google Drive."):
                 st.session_state["drive_cv_files"] = []
                 st.session_state["eval_results_store"] = {}
                 st.rerun()
@@ -472,15 +470,15 @@ with tab_drive:
 candidates_to_process = []
 
 if raw_cv_items:
-    st.write(f"📋 **{len(raw_cv_items)} berkas CV siap diproses.**")
+    st.write(f"📋 **{len(raw_cv_items)} CV documents ready to process.**")
     invalid_cv_count = 0
-    with st.spinner(f"🤖 Memvalidasi dan memproses CV kandidat..."):
+    with st.spinner(f"🤖 Validating and processing candidate CVs..."):
         for item in raw_cv_items:
             fname = item["name"]
             file_bytes = item["bytes"]
             cv_cache_key = f"{fname}_{len(file_bytes)}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
             
-            # Cek apakah CV ini sudah pernah di-parse sebelumnya di memori sesi
+            # Check if CV has already been parsed in session memory
             if cv_cache_key in st.session_state["parsed_cv_store"]:
                 parsed_cv = st.session_state["parsed_cv_store"][cv_cache_key]
                 candidates_to_process.append(parsed_cv)
@@ -498,45 +496,45 @@ if raw_cv_items:
                 st.session_state["parsed_cv_store"][cv_cache_key] = parsed_cv
                 candidates_to_process.append(parsed_cv)
             except EmptyPDFError:
-                st.warning(f"⚠️ **File Dilewati [{fname}]:** Berkas kosong atau scan gambar tanpa teks digital.")
+                st.warning(f"⚠️ **File Skipped [{fname}]:** Empty document or pure scanned image without digital OCR text.")
                 invalid_cv_count += 1
             except InvalidDocumentError as e:
-                st.warning(f"⚠️ **File Dilewati [{fname}]:** {str(e)}")
+                st.warning(f"⚠️ **File Skipped [{fname}]:** {str(e)}")
                 invalid_cv_count += 1
             except Exception as e:
-                st.warning(f"⚠️ **Gagal Memproses [{fname}]:** {str(e)}")
+                st.warning(f"⚠️ **Failed to Process [{fname}]:** {str(e)}")
                 invalid_cv_count += 1
 
     if candidates_to_process:
-        st.success(f"✅ Berhasil memproses {len(candidates_to_process)} CV kandidat yang valid.")
+        st.success(f"✅ Successfully processed {len(candidates_to_process)} valid candidate CVs.")
     elif invalid_cv_count > 0:
-        st.error("❌ Tidak ada CV valid yang dapat diproses. Silakan periksa kembali berkas Anda.")
+        st.error("❌ No valid candidate CVs could be processed. Please check your uploaded files.")
 
 st.markdown("---")
 
 # ==========================================
 # STEP 3: MATCHING & DASHBOARD RESULTS
 # ==========================================
-st.header("3️⃣ Evaluasi & Hasil Screening AI")
+st.header("3️⃣ AI Screening & Evaluation Results")
 
 if "analysis_triggered" not in st.session_state:
     st.session_state["analysis_triggered"] = False
 
 if not active_job:
-    st.info("📋 Silakan atur atau unggah **Job Description** pada **Langkah 1** terlebih dahulu.")
+    st.info("📋 Please setup or upload a **Job Description** in **Step 1** first.")
 elif not candidates_to_process:
-    st.info("📤 Silakan unggah atau impor berkas **CV Kandidat** pada **Langkah 2** terlebih dahulu.")
+    st.info("📤 Please upload or import **Candidate CVs** in **Step 2** first.")
 else:
     with st.container(border=True):
         col_st_info, col_st_btn = st.columns([3, 1])
         with col_st_info:
-            st.markdown(f"Siap mengevaluasi **{len(candidates_to_process)} CV kandidat** untuk posisi **{active_job['title']}**.")
-            status_text = "🛡️ Protokol Blind-CV Aktif" if enable_blind_cv else "⚪ Mode Penilaian Standar"
+            st.markdown(f"Ready to evaluate **{len(candidates_to_process)} candidate CVs** for **{active_job['title']}**.")
+            status_text = "🛡️ Blind-CV Protocol Active" if enable_blind_cv else "⚪ Standard Scoring Mode"
             model_info = f"🤖 Engine: {provider_choice} ({effective_model})" if effective_api_key else "⚡ Engine: Local Intelligent Rule Engine (Offline)"
             st.caption(f"{status_text} | {model_info}")
         with col_st_btn:
             st.write("")
-            if st.button("🚀 Mulai Analisis AI", type="primary", use_container_width=True):
+            if st.button("🚀 Start AI Analysis", type="primary", use_container_width=True):
                 st.session_state["analysis_triggered"] = True
                 st.rerun()
 
@@ -547,14 +545,14 @@ else:
             model_name=effective_model
         )
         evaluated_results = []
-        progress_bar = st.progress(0, text="Sedang menganalisis kecocokan kandidat...")
+        progress_bar = st.progress(0, text="Analyzing candidate compatibility...")
 
         for idx, raw_cv in enumerate(candidates_to_process):
-            cand_name = raw_cv.get("personal_info", {}).get("full_name") or f"Kandidat #{idx+1}"
-            progress_bar.progress((idx + 1) / len(candidates_to_process), text=f"🤖 Mengevaluasi {cand_name} ({idx+1}/{len(candidates_to_process)})...")
+            cand_name = raw_cv.get("personal_info", {}).get("full_name") or f"Candidate #{idx+1}"
+            progress_bar.progress((idx + 1) / len(candidates_to_process), text=f"🤖 Evaluating {cand_name} ({idx+1}/{len(candidates_to_process)})...")
             cv_to_process = BlindCVAnonymizer.anonymize_cv(raw_cv, enabled_fields=active_masked_fields) if enable_blind_cv else raw_cv
             
-            # Cache Key Evaluasi Scoring untuk mencegah Hit API berulang kali saat klik di UI
+            # Cache Key for scoring evaluation to prevent redundant API hits on UI clicks
             eval_cache_key = f"{raw_cv.get('cv_id')}_{active_job.get('job_id')}_{enable_blind_cv}_{'_'.join(sorted(active_masked_fields))}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
             
             if eval_cache_key in st.session_state["eval_results_store"]:
@@ -570,26 +568,26 @@ else:
         progress_bar.empty()
         evaluated_results.sort(key=lambda x: x["overall_score"], reverse=True)
 
-        tab1, tab2, tab3 = st.tabs(["🏆 Leaderboard & Hasil Seleksi", "🛡️ Blind-CV Anonymization", "📊 Distribusi & Analisis"])
+        tab1, tab2, tab3 = st.tabs(["🏆 Leaderboard & Screening Results", "🛡️ Blind-CV Anonymization", "📊 Analytics & Distribution"])
 
         with tab1:
-            st.subheader(f"Hasil Evaluasi Kandidat untuk Posisi: {active_job['title']}")
+            st.subheader(f"Candidate Evaluation Results for: {active_job['title']}")
             
             filtered_list = [c for c in evaluated_results if c["overall_score"] >= min_score]
             
             m1, m2, m3 = st.columns(3)
             with m1:
                 with st.container(border=True):
-                    st.metric("📁 Total CV Diproses", len(evaluated_results))
+                    st.metric("📁 Total CVs Processed", len(evaluated_results))
             with m2:
                 with st.container(border=True):
-                    st.metric("🎯 Kandidat Lolos Shortlist", len(filtered_list))
+                    st.metric("🎯 Shortlisted Candidates", len(filtered_list))
             with m3:
                 with st.container(border=True):
                     avg_score = round(sum(c['overall_score'] for c in evaluated_results) / len(evaluated_results), 1) if evaluated_results else 0
-                    st.metric("📈 Rerata Skor Kesesuaian", f"{avg_score}%")
+                    st.metric("📈 Average Match Score", f"{avg_score}%")
 
-            st.markdown("### 📋 Daftar Kandidat Terurut (Ranking)")
+            st.markdown("### 📋 Ranked Candidates (Leaderboard)")
 
             for rank, item in enumerate(evaluated_results, start=1):
                 raw_personal = item["raw_cv"].get("personal_info", {})
@@ -597,32 +595,32 @@ else:
                 alias_label = f" ({item['candidate_alias']})" if enable_blind_cv else ""
                 
                 with st.container(border=True):
-                    st.markdown(f"#### #{rank} **{real_name}**{alias_label} — Skor Kecocokan: **{item['overall_score']}%**")
+                    st.markdown(f"#### #{rank} **{real_name}**{alias_label} — Match Score: **{item['overall_score']}%**")
                     
                     col_a, col_b = st.columns(2)
-                    col_a.markdown(f"📌 **Status Rekomendasi:** `{item['status']}`")
-                    col_b.markdown(f"🎯 **Kesesuaian Skill:** `{item['score_breakdown']['skill_match']}%`")
+                    col_a.markdown(f"📌 **Recommendation Status:** `{item['status']}`")
+                    col_b.markdown(f"🎯 **Skill Compatibility:** `{item['score_breakdown']['skill_match']}%`")
                     if item.get("eval_source"):
-                        st.caption(f"⚡ *Engine Analisis:* `{item['eval_source']}`")
+                        st.caption(f"⚡ *Analysis Engine:* `{item['eval_source']}`")
                     
                     with st.expander("Review"):
                         active_profile = item["raw_cv"]
                         p_info = active_profile.get("personal_info", {})
                         
-                        st.markdown("##### Informasi Kandidat")
+                        st.markdown("##### Candidate Information")
                         col_info1, col_info2 = st.columns(2)
                         with col_info1:
-                            st.markdown(f"- **Nama:** {p_info.get('full_name', real_name)}")
+                            st.markdown(f"- **Name:** {p_info.get('full_name', real_name)}")
                             st.markdown(f"- **Email:** {p_info.get('email', '-')}")
-                            st.markdown(f"- **Telepon:** {p_info.get('phone', '-')}")
+                            st.markdown(f"- **Phone:** {p_info.get('phone', '-')}")
                         with col_info2:
                             age_val = p_info.get("age", "-")
-                            age_disp = f"{age_val} tahun" if isinstance(age_val, (int, float)) else str(age_val)
-                            st.markdown(f"- **Usia:** {age_disp}")
+                            age_disp = f"{age_val} years old" if isinstance(age_val, (int, float)) else str(age_val)
+                            st.markdown(f"- **Age:** {age_disp}")
                             st.markdown(f"- **Gender:** {p_info.get('gender', '-')}")
-                            st.markdown(f"- **Domisili:** {p_info.get('address', '-')}")
+                            st.markdown(f"- **Domicile / Address:** {p_info.get('address', '-')}")
 
-                        st.markdown("##### Riwayat Pendidikan")
+                        st.markdown("##### Education Background")
                         edu_list = active_profile.get("education", [])
                         if isinstance(edu_list, list) and edu_list:
                             for edu in edu_list:
@@ -634,82 +632,82 @@ else:
                         elif isinstance(edu_list, dict):
                             st.markdown(f"- **{edu_list.get('institution', '-')}**: {edu_list.get('degree', '-')}")
                         else:
-                            st.markdown("- *Tidak tercantum data pendidikan.*")
+                            st.markdown("- *No formal education history specified.*")
 
-                        st.markdown("##### Pengalaman Kerja & Rekam Jejak")
+                        st.markdown("##### Work Experience & Track Record")
                         exp_list = active_profile.get("work_experience", [])
                         if exp_list:
                             for exp in exp_list:
-                                role = exp.get("role", "Posisi")
-                                comp = exp.get("company", "Perusahaan")
-                                period = exp.get("period", f"{exp.get('duration_years', 0)} Tahun")
-                                st.markdown(f"- **{role}** di **{comp}** *({period})*")
+                                role = exp.get("role", "Role")
+                                comp = exp.get("company", "Company")
+                                period = exp.get("period", f"{exp.get('duration_years', 0)} Years")
+                                st.markdown(f"- **{role}** at **{comp}** *({period})*")
                         else:
-                            st.markdown("- *Tidak ada riwayat kerja spesifik.*")
+                            st.markdown("- *No specific work experience listed.*")
 
                         col_sk1, col_sk2 = st.columns(2)
                         with col_sk1:
-                            st.markdown("##### Keahlian Teknis (Technical Skills)")
+                            st.markdown("##### Technical Skills")
                             tech_list = active_profile.get("technical_skills", [])
                             if tech_list:
                                 for t in tech_list:
                                     st.markdown(f"- {t}")
                             else:
-                                st.markdown("- *Tidak tercantum skill teknis khusus.*")
+                                st.markdown("- *No specific technical skills listed.*")
 
                         with col_sk2:
-                            st.markdown("##### Keahlian Perilaku (Soft Skills)")
+                            st.markdown("##### Soft Skills")
                             soft_list = active_profile.get("soft_skills", [])
                             if soft_list:
                                 for s in soft_list:
                                     st.markdown(f"- {s}")
                             else:
-                                st.markdown("- *Tidak tercantum soft skill khusus.*")
+                                st.markdown("- *No specific soft skills listed.*")
 
                         certs = active_profile.get("certifications", [])
                         if certs:
-                            st.markdown("##### Sertifikasi & Pencapaian")
+                            st.markdown("##### Certifications & Achievements")
                             for c in certs:
                                 st.markdown(f"- {c}")
 
                         st.markdown("---")
-                        st.markdown("##### Analisis Kesesuaian AI (Pros & Cons)")
+                        st.markdown("##### AI Fit Analysis (Explainable AI / XAI)")
                         col_pro, col_con = st.columns(2)
                         with col_pro:
-                            st.markdown("**Keunggulan Profil (Pros):**")
+                            st.markdown("**Profile Strengths (Pros):**")
                             for pro in item["justification"]["pros"]:
                                 st.markdown(f"- {pro}")
                         with col_con:
-                            st.markdown("**Area Pertimbangan / Gap (Cons):**")
+                            st.markdown("**Areas for Consideration / Gaps (Cons):**")
                             for con in item["justification"]["cons"]:
                                 st.markdown(f"- {con}")
 
         with tab2:
-            st.subheader("🛡️ Blind-CV Anonymization")
-            st.info("Fitur ini memungkinkan Anda memilih secara spesifik informasi pribadi (PII) yang ingin disamarkan sebelum data dikirim ke sistem penilaian, memastikan evaluasi 100% berbasis kompetensi & rekam jejak.")
+            st.subheader("🛡️ Blind-CV Anonymization Audit")
+            st.info("This feature allows you to granularly select personal identifiable information (PII) to be masked before data is evaluated, guaranteeing 100% merit-based assessment.")
             
             cv_options = [c["cv_id"] for c in evaluated_results]
-            selected_audit_id = st.selectbox("Pilih CV untuk Diaudit & Dibandingkan:", cv_options)
+            selected_audit_id = st.selectbox("Select CV to Audit & Compare:", cv_options)
             target_audit = next(c for c in evaluated_results if c["cv_id"] == selected_audit_id)
             
             col_left, col_right = st.columns(2)
             with col_left:
-                st.error("❌ Data Mentah CV Asli (Lengkap)")
+                st.error("❌ Original Raw CV Data (Unmasked)")
                 st.json(target_audit["raw_cv"])
             with col_right:
-                st.success("✅ Data Blind-CV yang Diterima AI (Lengkap & Terlindungi)")
+                st.success("✅ Blind-CV Data Evaluated by AI (Protected & Anonymized)")
                 st.json(target_audit["anonymized_cv"])
 
         with tab3:
-            st.subheader("📊 Analisis Distribusi Skor Kandidat")
+            st.subheader("📊 Candidate Score Distribution Analytics")
             df_plot = pd.DataFrame([
                 {
-                    "Kandidat": c["candidate_alias"] if enable_blind_cv else c["raw_cv"]["personal_info"].get("full_name", c["cv_id"]),
-                    "Total Skor (%)": c["overall_score"],
-                    "Skor Skill (%)": c["score_breakdown"]["skill_match"],
-                    "Skor Pengalaman (%)": c["score_breakdown"]["experience_depth"]
+                    "Candidate": c["candidate_alias"] if enable_blind_cv else c["raw_cv"]["personal_info"].get("full_name", c["cv_id"]),
+                    "Overall Score (%)": c["overall_score"],
+                    "Skill Match Score (%)": c["score_breakdown"]["skill_match"],
+                    "Experience Score (%)": c["score_breakdown"]["experience_depth"]
                 } for c in evaluated_results
             ])
-            st.bar_chart(df_plot.set_index("Kandidat"))
+            st.bar_chart(df_plot.set_index("Candidate"))
 
 st.caption("Autonomous Candidate Screening Platform v1.6.0 | AI Specialist Technical Assessment")

@@ -1,11 +1,11 @@
-import os
+﻿import os
 
-# Coba gunakan python-dotenv jika terinstall, atau fallback ke native parser jika belum terinstall
+# Try to use python-dotenv if installed, or fallback to native parser
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
-    # Native fallback untuk membaca file .env tanpa perlu library pihak ketiga
+    # Native fallback to read .env file without external dependencies
     env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
     if os.path.exists(env_path):
         with open(env_path, "r", encoding="utf-8") as f:

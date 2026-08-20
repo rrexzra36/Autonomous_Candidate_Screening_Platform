@@ -52,14 +52,14 @@ class CandidateMatcherEngine:
         
         if total_exp < min_exp:
             hard_filter_passed = False
-            knockout_reasons.append(f"Pengalaman kerja ({total_exp} tahun) kurang dari batas minimum ({min_exp} tahun).")
+            knockout_reasons.append(f"Work experience ({total_exp} years) is less than the required minimum ({min_exp} years).")
             
         mandatory_certs = hard_reqs.get("mandatory_certifications", [])
         cand_certs = anonymized_cv.get("certifications", [])
         for cert in mandatory_certs:
             if not any(cert.lower() in c.lower() for c in cand_certs):
                 hard_filter_passed = False
-                knockout_reasons.append(f"Tidak memiliki sertifikasi wajib: '{cert}'.")
+                knockout_reasons.append(f"Missing mandatory certification: '{cert}'.")
 
         # --- TIER 2: Skill & Semantic Matching ---
         jd_skills = list(dict.fromkeys([s.lower() for s in (job_desc.get("technical_skills", []) + job_desc.get("soft_skills", []) + job_desc.get("key_skills", []))]))
@@ -112,40 +112,40 @@ class CandidateMatcherEngine:
         """
         if self.api_key and self.api_key.strip():
             prompt = f"""
-Anda adalah Senior Technical Recruiter dan AI Talent Acquisition Specialist.
-Berikan evaluasi mendalam, tajam, dan objektif mengenai kesesuaian kandidat terhadap lowongan pekerjaan berikut.
+You are a Senior Technical Recruiter and AI Talent Acquisition Specialist.
+Provide an in-depth, rigorous, and objective evaluation of the candidate's fit against the job description below.
 
-=== DATA LOWONGAN PEKERJAAN ===
-Posisi: {job.get('title')}
-Pendidikan & Jurusan: {job.get('hard_requirements', {}).get('min_education', 'S1')} ({job.get('major', 'Terkait')})
-Pengalaman Minimal: {job.get('hard_requirements', {}).get('min_experience_years', 0)} Tahun
-Technical Skills Dibutuhkan: {', '.join(job.get('technical_skills', job.get('key_skills', [])))}
-Soft Skills Dibutuhkan: {', '.join(job.get('soft_skills', []))}
-Tanggung Jawab & Deskripsi:
+=== JOB DESCRIPTION DATA ===
+Position: {job.get('title')}
+Education & Major: {job.get('hard_requirements', {}).get('min_education', 'Bachelor Degree')} ({job.get('major', 'Related')})
+Minimum Experience: {job.get('hard_requirements', {}).get('min_experience_years', 0)} Years
+Technical Skills Required: {', '.join(job.get('technical_skills', job.get('key_skills', [])))}
+Soft Skills Required: {', '.join(job.get('soft_skills', []))}
+Responsibilities & Description:
 {job.get('responsibilities', job.get('description', ''))}
 
-=== DATA PROFIL KANDIDAT (BLIND-CV / MERIT BASED) ===
+=== CANDIDATE PROFILE (BLIND-CV / MERIT BASED) ===
 {json.dumps(cv, indent=2, ensure_ascii=False)}
 
-=== INSTRUKSI ANALISIS (EXPLAINABLE AI) ===
-1. PROS (Keunggulan & Potensi Nilai Tambah Kandidat):
-   - Analisis kekuatan rekam jejak proyek/pekerjaan riil kandidat terhadap kebutuhan posisi ini.
-   - Analisis penguasaan software teknis & kompetensi inti yang siap diaplikasikan.
-   - Sebutkan soft skills, etos kerja, atau prestasi yang memperkuat profil kandidat.
-2. CONS (Catatan Kesenjangan / Area Pertimbangan):
-   - Analisis skill teknis (software/tools) atau sertifikasi penting yang diminta lowongan namun belum tercantum di CV kandidat.
-   - Analisis kesenjangan pengalaman, jenjang, atau ruang adaptasi yang dibutuhkan kandidat.
+=== EVALUATION INSTRUCTIONS (EXPLAINABLE AI) ===
+1. PROS (Candidate Strengths & Value-Add Potential):
+   - Analyze candidate's real project/work track record relevance to position requirements.
+   - Analyze technical software proficiency & core competencies ready to be deployed.
+   - Highlight interpersonal strengths, work ethic, and achievements.
+2. CONS (Gaps & Areas for Consideration):
+   - Highlight essential technical software/tools or certifications required by the job but missing from the CV.
+   - Highlight experience gaps, depth variance, or onboarding adaptation needed.
 
-=== FORMAT OUTPUT (WAJIB JSON MURNI TANPA EMOJI) ===
+=== OUTPUT FORMAT (MANDATORY PURE JSON WITHOUT EMOJIS) ===
 {{
   "pros": [
-    "Poin analisis keunggulan portofolio & proyek nyata kandidat...",
-    "Poin analisis penguasaan tools dan software utama yang relevan...",
-    "Poin analisis soft skills dan kekuatan rekam jejak kerja..."
+    "Key strength point analyzing candidate's portfolio & concrete track record...",
+    "Key strength point analyzing core software & relevant technical tools...",
+    "Key strength point analyzing soft skills and proven achievements..."
   ],
   "cons": [
-    "Poin analisis kesenjangan software / tools teknis yang belum tercantum...",
-    "Poin analisis ruang adaptasi atau gap kualifikasi terhadap lowongan..."
+    "Area of consideration regarding specific software/tools not explicitly listed...",
+    "Area of consideration regarding qualification depth or experience gap..."
   ]
 }}
 """
@@ -160,7 +160,7 @@ Tanggung Jawab & Deskripsi:
                         model=self.model_name or "gpt-4o-mini",
                         response_format={"type": "json_object"},
                         messages=[
-                            {"role": "system", "content": "Anda adalah Senior Technical Recruiter yang mengeluarkan JSON murni."},
+                            {"role": "system", "content": "You are a Senior Technical Recruiter outputting pure JSON."},
                             {"role": "user", "content": prompt}
                         ],
                         temperature=0.3
@@ -173,12 +173,14 @@ Tanggung Jawab & Deskripsi:
             else:
                 models_to_try = [
                     self.model_name,
-                    "gemini-1.5-flash",
-                    "gemini-2.0-flash",
+                    "gemini-3.5-flash",
+                    "gemini-3-flash-preview",
+                    "gemini-3.1-flash-lite",
+                    "gemini-3.1-pro-preview",
                     "gemini-2.5-flash",
-                    "gemini-1.5-pro",
-                    "models/gemini-1.5-flash",
-                    "models/gemini-1.5-pro"
+                    "gemini-2.0-flash",
+                    "gemini-1.5-flash",
+                    "gemini-1.5-pro"
                 ]
                 for m_name in models_to_try:
                     if not m_name:
@@ -245,37 +247,37 @@ Tanggung Jawab & Deskripsi:
         
         # Format Pros based on THIS candidate's actual CV
         if cand_tech:
-            pros.append(f"Menguasai keahlian software dan peralatan teknis: {', '.join(cand_tech)}.")
+            pros.append(f"Proficient in technical tools and software: {', '.join(cand_tech)}.")
         elif matched_tech:
-            pros.append(f"Menguasai keahlian teknis yang relevan: {', '.join(matched_tech)}.")
+            pros.append(f"Proficient in relevant technical capabilities: {', '.join(matched_tech)}.")
 
         if cand_soft:
-            pros.append(f"Memiliki kompetensi interpersonal dan etos kerja: {', '.join(cand_soft)}.")
+            pros.append(f"Demonstrates interpersonal competencies and work ethic: {', '.join(cand_soft)}.")
         elif matched_soft:
-            pros.append(f"Memiliki soft skills pendukung: {', '.join(matched_soft)}.")
+            pros.append(f"Possesses supporting soft skills: {', '.join(matched_soft)}.")
 
         # Duration & Education
         if total_exp > 0:
             if total_exp >= min_exp:
-                pros.append(f"Memenuhi kriteria pengalaman kerja dengan total durasi riil {total_exp} tahun (target: >= {min_exp} tahun).")
+                pros.append(f"Fulfills work experience requirement with {total_exp} years of relevant experience (target: >= {min_exp} years).")
             else:
-                pros.append(f"Memiliki akumulasi pengalaman kerja {total_exp} tahun di industri terkait.")
+                pros.append(f"Possesses {total_exp} years of accumulated industry work experience.")
 
         edu_list = cv.get("education", [])
         if isinstance(edu_list, list) and edu_list:
             deg_names = [e.get("degree") for e in edu_list if e.get("degree")]
             if deg_names:
-                pros.append(f"Didukung latar belakang pendidikan formal: {', '.join(deg_names)}.")
+                pros.append(f"Supported by formal education credentials: {', '.join(deg_names)}.")
         elif isinstance(edu_list, dict) and edu_list.get("degree"):
-            pros.append(f"Didukung latar belakang pendidikan: {edu_list.get('degree')}.")
+            pros.append(f"Supported by formal education background: {edu_list.get('degree')}.")
 
         # Format Cons (Gaps against Job Vacancy)
         if knockout_reasons:
             cons.extend(knockout_reasons)
             
         if missing_tech:
-            cons.append(f"Belum mencantumkan penguasaan tools spesifik yang diminta lowongan: {', '.join(missing_tech)}.")
+            cons.append(f"Has not explicitly listed specific software tools required by the job: {', '.join(missing_tech)}.")
         if missing_soft:
-            cons.append(f"Perlu pendalaman lebih lanjut untuk pemenuhan soft skills: {', '.join(missing_soft)}.")
+            cons.append(f"Soft skills may require further verification during interview: {', '.join(missing_soft)}.")
 
         return pros, cons, "Local Intelligent Rule Engine (Offline)"
