@@ -573,10 +573,17 @@ else:
         # Unique state fingerprint for current input configuration
         current_config_sig = f"{active_job.get('job_id', '')}_{len(candidates_to_process)}_{'_'.join(sorted([c.get('cv_id', '') for c in candidates_to_process]))}_{enable_blind_cv}_{'_'.join(sorted(active_masked_fields))}_{w_skill}_{w_exp}_{w_edu}_{threshold_score}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
 
-        col_warn, col_btn = st.columns([3, 1], vertical_alignment="center")
+        col_warn, col_reset_btn, col_btn = st.columns([2, 1, 1], vertical_alignment="center")
         with col_warn:
             if total_weight != 100:
                 st.warning(f"⚠️ Total scoring weight must equal 100% (Current Total: **{total_weight}%**).")
+        with col_reset_btn:
+            if st.button("🔄 Reset Weights", use_container_width=True, help="Reset scoring weights to default values (60% Threshold, 50% Skills, 30% Experience, 20% Education)."):
+                st.session_state["score_threshold_input"] = 60
+                st.session_state["weight_skill"] = 50
+                st.session_state["weight_exp"] = 30
+                st.session_state["weight_edu"] = 20
+                st.rerun()
         with col_btn:
             is_disabled = (total_weight != 100)
             if st.button("🚀 Start AI Analysis", type="primary", use_container_width=True, disabled=is_disabled):
