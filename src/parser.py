@@ -348,6 +348,45 @@ class DocumentParser:
         }
 
     @staticmethod
+    def _segment_cv_sections(text: str) -> Dict[str, str]:
+        """
+        Segments raw CV text into isolated semantic section blocks to prevent cross-contamination:
+        - HEADER (Personal Info, Contact, Summary)
+        - EXPERIENCE (Work History, Projects)
+        - EDUCATION (Universities, Degrees, Majors)
+        - SKILLS (Technical Tools & Soft Skills)
+        - CERTIFICATIONS
+        """
+        header_patterns = [
+            ('EXPERIENCE', r'(?:^|\n)\s*(?:WORK\s+EXPERIENCE|PROFESSIONAL\s+EXPERIENCE|EXPERIENCE|PENGALAMAN\s+KERJA|PENGALAMAN|EMPLOYMENT\s+HISTORY)\s*(?:\n|\:|\-)'),
+            ('EDUCATION', r'(?:^|\n)\s*(?:EDUCATION|PENDIDIKAN|RIWAYAT\s+PENDIDIKAN|ACADEMIC\s+BACKGROUND)\s*(?:\n|\:|\-)'),
+            ('SKILLS', r'(?:^|\n)\s*(?:SKILLS\s*&\s*ABILITIES|TECHNICAL\s+SKILLS|SKILLS|KEAHLIAN|COMPETENCIES)\s*(?:\n|\:|\-)'),
+            ('PROJECTS', r'(?:^|\n)\s*(?:PROJECTS|PROJECT\s+EXPERIENCE|PROYEK|ORGANIZATIONAL\s+EXPERIENCE)\s*(?:\n|\:|\-)'),
+            ('CERTIFICATIONS', r'(?:^|\n)\s*(?:CERTIFICATIONS|CERTIFICATES|SERTIFIKAT|ACHIEVEMENTS)\s*(?:\n|\:|\-)')
+        ]
+        
+        found = []
+        for sec_name, pat in header_patterns:
+            for m in re.finditer(pat, text, re.I):
+                found.append((m.start(), m.end(), sec_name))
+                
+        found.sort(key=lambda x: x[0])
+        
+        sections = {}
+        if not found:
+            sections['HEADER'] = text
+            return sections
+            
+        sections['HEADER'] = text[:found[0][0]].strip()
+        for i in range(len(found)):
+            name = found[i][2]
+            s_idx = found[i][1]
+            e_idx = found[i+1][0] if i + 1 < len(found) else len(text)
+            sections[name] = text[s_idx:e_idx].strip()
+            
+        return sections
+
+    @staticmethod
     def parse_candidate_cv(text: str, filename: str = "Candidate_CV.pdf", api_key: str = "", provider: str = "gemini", model_name: str = "gemini-1.5-flash") -> Dict[str, Any]:
         """
         High-fidelity extractor converting raw CV text into complete, authentic candidate profile entities
@@ -368,160 +407,151 @@ class DocumentParser:
             except Exception:
                 pass
 
-        # === High-Fidelity Heuristic Fallback Extractor ===
-        clean_lines = [l.strip() for l in text.split("\n") if l.strip()]
+        # === Hierarchical Section-Segmented Extraction Algorithm ===
+        sections = DocumentParser._segment_cv_sections(text)
+        header_text = sections.get("HEADER", text)
+        edu_text = sections.get("EDUCATION", "")
+        exp_text = sections.get("EXPERIENCE", "")
+        skills_text = sections.get("SKILLS", "")
+        cert_text = sections.get("CERTIFICATIONS", "")
 
-        # 1. Full Name Extraction
+        # 1. Full Name Extraction (from Header Chunk)
         name = ""
-        name_match = re.search(r"(?:nama|name|full\s*name)\s*[:\-]\s*([a-zA-Z\s\.\,\'\-]+)", text, re.I)
+        name_match = re.search(r"(?:nama|name|full\s*name)\s*[:\-]\s*([a-zA-Z\s\.\,\'\-]+)", header_text, re.I)
         if name_match and len(name_match.group(1).strip()) > 2:
             name = name_match.group(1).strip().title()
         else:
-            for line in clean_lines[:6]:
-                if re.search(r"dibuat dengan|profil jobstreet|curriculum vitae|resume|biodata|personal info|contact|tentang saya|about me", line, re.I):
+            clean_lines = [l.strip() for l in header_text.split("\n") if l.strip()]
+            for line in clean_lines[:4]:
+                if re.search(r"dibuat dengan|curriculum vitae|resume|biodata|personal info|contact|tentang saya", line, re.I):
                     continue
-                if len(line) < 35 and not re.search(r"[@0-9\+\:\/\|]", line) and len(line.split()) <= 4:
-                    candidate_name = line.strip(" :-|")
-                    if len(candidate_name) > 2 and not any(k in candidate_name.lower() for k in ["architect", "drafter", "engineer", "designer", "profile", "summary"]):
-                        name = candidate_name.title()
+                if len(line) < 40 and not re.search(r"[@0-9\+\:\/\|]", line) and len(line.split()) <= 4:
+                    candidate_name = line.strip(" :-|").title()
+                    if len(candidate_name) > 2:
+                        name = candidate_name
                         break
         if not name:
-            name = filename.replace(".pdf", "").replace("_", " ").replace("CV Sample", "Candidate").title()
+            name = filename.replace(".pdf", "").replace("_", " ").title()
 
-        # 2. Email Extraction
+        # 2. Email Extraction (from Header Chunk)
         email = "candidate@email.com"
-        email_pattern = re.search(r"([a-zA-Z0-9_.+-]+(?:\s+[a-zA-Z0-9_.+-]+)?)\s*@\s*([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)", text)
+        email_pattern = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", header_text)
         if email_pattern:
-            tokens = [x for x in re.split(r"[\s\r\n]+", email_pattern.group(1).strip()) if x]
-            user_part = "".join(tokens[-2:]) if len(tokens) >= 2 and tokens[-1].isdigit() else (tokens[-1] if tokens else "candidate")
-            domain_part = re.sub(r"\s+", "", email_pattern.group(2))
-            email = f"{user_part}@{domain_part}".lower()
+            email = email_pattern.group(0).lower()
 
-        # 3. Phone Normalization
+        # 3. Phone Normalization (from Header Chunk)
         phone = "Not Specified"
-        phone_match = re.search(r"(?:\+?\s*62|0)[\s\-]*(?:8[0-9\s\-]{7,15})", text)
+        phone_match = re.search(r"(?:\+?\s*62|0)[\s\-]*(?:8[0-9\s\-]{7,15})", header_text)
         if phone_match:
             phone = normalize_phone_number(phone_match.group(0))
 
         # 4. Gender Extraction
         gender = "Not Specified"
-        if re.search(r"\b(laki[\s\-]*laki|pria|male)\b", text, re.I):
+        if re.search(r"\b(laki[\s\-]*laki|pria|male)\b", header_text, re.I):
             gender = "Male"
-        elif re.search(r"\b(perempuan|wanita|female)\b", text, re.I):
+        elif re.search(r"\b(perempuan|wanita|female)\b", header_text, re.I):
             gender = "Female"
 
         # 5. Age & Birth Date Extraction
         age = "Not Specified"
-        explicit_age = re.search(r"(?:usia|umur|age)\s*[:\-]?\s*(\d{2})", text, re.I)
+        explicit_age = re.search(r"(?:usia|umur|age)\s*[:\-]?\s*(\d{2})", header_text, re.I)
         if explicit_age:
             age = int(explicit_age.group(1))
-        else:
-            birth_match = re.search(r"(?:born\s+in|lahir|birth|dob|tgl lahir|tanggal lahir)[^\n\r]*?(\d{1,2}\s+[a-zA-Z]+\s+\d{4}|\d{4})", text, re.I)
-            if birth_match:
-                year_match = re.search(r"\b(19\d{2}|20\d{2})\b", birth_match.group(0))
-                if year_match:
-                    birth_year = int(year_match.group(1))
-                    age = 2026 - birth_year
 
-        # 6. Address / City Extraction
+        # 6. Address / City Extraction (from Header Chunk)
         address = "Not Specified"
         cities = [
-            "South Jakarta - Indonesia", "South Jakarta", "Jakarta Barat", "Jakarta Timur", "Jakarta Selatan", "Jakarta Pusat", "Jakarta Utara", "DKI Jakarta", "Jakarta",
-            "Bandung, Indonesia", "Bandung", "Kuningan", "Surabaya", "Yogyakarta", "Semarang", "Bekasi", "Tangerang", "Depok", "Bogor", "Medan", "Malang", "Solo", "Surakarta", "Denpasar", "Bali"
+            "Sukoharjo", "Surakarta", "Solo", "Yogyakarta", "South Jakarta - Indonesia", "South Jakarta",
+            "Jakarta Barat", "Jakarta Timur", "Jakarta Selatan", "Jakarta Pusat", "Jakarta Utara", "DKI Jakarta", "Jakarta",
+            "Bandung, Indonesia", "Bandung", "Surabaya", "Semarang", "Bekasi", "Tangerang", "Depok", "Bogor", "Medan", "Malang", "Denpasar", "Bali"
         ]
         for c in cities:
-            if re.search(rf"\b{re.escape(c)}\b", text, re.I):
+            if re.search(rf"\b{re.escape(c)}\b", header_text, re.I):
                 address = c
                 break
-        if address == "Not Specified":
-            addr_match = re.search(r"(?:alamat|address|domisili|lokasi|city|kota|location)\s*[:\-]?\s*([^\n\r\|]+)", text, re.I)
-            if addr_match and len(addr_match.group(1).strip()) > 3:
-                address = addr_match.group(1).strip()
 
-        # 7. Comprehensive Multi-Level Education Extraction
+        # 7. Education Extraction (Isolated to EDUCATION Chunk)
         education_list = []
-        
-        # Match Degree Level and Major dynamically
-        degree_patterns = [
-            (r"(?:bachelor|sarjana|s1)\s+(?:of|in|jurusan|prodi|degree in)?\s*([a-zA-Z\s&/]+?)(?=[,\n\r\|]|\s+(?:with|faculty|tahun|grade|ipk|gpa|\d{4}|$))", "Bachelor Degree (S1)"),
-            (r"(?:master|magister|s2)\s+(?:of|in|jurusan|prodi|degree in)?\s*([a-zA-Z\s&/]+?)(?=[,\n\r\|]|\s+(?:with|faculty|tahun|grade|ipk|gpa|\d{4}|$))", "Master Degree (S2)"),
-            (r"(?:diploma|d3|d4|ahli madya)\s+(?:of|in|jurusan|prodi)?\s*([a-zA-Z\s&/]+?)(?=[,\n\r\|]|\s+(?:with|faculty|tahun|grade|ipk|gpa|\d{4}|$))", "Associate Degree / Diploma"),
-            (r"((?:information systems|computer science|informatics|architecture|civil engineering|mechanical engineering|accounting|management|business administration|graphic design)\s+graduate)", "Bachelor Degree (S1)"),
-            (r"(?:smk|vocational\s+high\s+school)\s*([a-zA-Z0-9\s&/]+?)(?=[,\n\r\|]|\s+(?:majoring|jurusan|tahun|$))", "Vocational High School (SMK)"),
-            (r"(?:sma|high\s+school)\s*([a-zA-Z0-9\s&/]+?)(?=[,\n\r\|]|\s+(?:majoring|jurusan|tahun|$))", "Senior High School (SMA)")
-        ]
-        
-        detected_major = ""
-        detected_degree = "Bachelor's Degree (S1)"
-        for pat, deg_lbl in degree_patterns:
-            m = re.search(pat, text, re.I)
-            if m:
-                detected_degree = deg_lbl
-                if m.groups() and m.group(1):
-                    raw_maj = m.group(1).strip(" :-|")
-                    if len(raw_maj) > 3 and not re.search(r"^\d+$", raw_maj):
-                        detected_major = raw_maj.title()
-                break
+        target_edu_text = edu_text if edu_text else text
 
-        # Check for Universities / Campuses dynamically
-        univ_match = re.search(r"((?:Universitas|University|Institut|Institute|Politeknik|Polytechnic|Sekolah Tinggi|STMIK|SMA|SMK)\s+[a-zA-Z0-9\s\(\)\.\,]+?)(?=[,\n\r]|\s+(?:Department|majoring|jurusan|with|faculty|tahun|grade|ipk|gpa|$))", text, re.I)
+        # Match Campus / School Name
+        univ_match = re.search(r"\b((?:Universitas|University|Institut|Institute|Politeknik|Polytechnic|Sekolah Tinggi|STMIK|SMA\s+Negeri|SMK\s+Negeri|SMA|SMK)\s+[a-zA-Z0-9\s\(\)\.\,]+?)(?=[,\n\r\(]|\s+(?:Department|jurusan|tahun|grade|ipk|gpa|\d{4}|$))", target_edu_text, re.I)
         inst_name = univ_match.group(1).strip().title() if univ_match else "Accredited Higher Education Institution"
         inst_name = re.sub(r"\s+Department\s+Of.*", "", inst_name, flags=re.I).strip()
 
-        period_match = re.search(r"((?:20\d{2}|19\d{2})\s*[\-\–]\s*(?:Present|Sekarang|20\d{2}|19\d{2}))", text, re.I)
-        period_str = period_match.group(1).strip() if period_match else "2019 - 2023"
+        # Degree & Major Detection
+        deg_match = re.search(r"\b(Bachelor(?:\s+of|\s+in)?\s+[a-zA-Z\s]+|Sarjana(?:\s+Komputer|\s+Teknik|\s+S1|\s+S\.Kom|\s+S\.T)?|Master(?:\s+of|\s+in)?\s+[a-zA-Z\s]+|Diploma(?:\s+in)?\s+[a-zA-Z\s]+|S1\s+[a-zA-Z\s]+|S2\s+[a-zA-Z\s]+|D3\s+[a-zA-Z\s]+|Vocational\s+High\s+School|Senior\s+High\s+School)\b", target_edu_text, re.I)
+        degree_name = deg_match.group(0).strip().title() if deg_match else "Bachelor's Degree (S1)"
 
-        if detected_major:
-            degree_str = f"{detected_degree} in {detected_major}"
-        else:
-            degree_str = detected_degree
+        major_patterns = [
+            r"(?:information systems|computer science|informatics|architecture|civil engineering|mechanical engineering|electrical engineering|industrial engineering|accounting|management|business administration|data science|graphic design)",
+            r"(?:sistem informasi|teknik informatika|ilmu komputer|arsitektur|teknik sipil|teknik mesin|teknik elektro|akuntansi|manajemen|desain komunikasi visual)"
+        ]
+        detected_major = ""
+        for mp in major_patterns:
+            mm = re.search(mp, target_edu_text, re.I)
+            if mm:
+                detected_major = mm.group(0).strip().title()
+                break
+        if not detected_major:
+            grad_m = re.search(r"([a-zA-Z\s]+)\s+graduate", header_text, re.I)
+            if grad_m and len(grad_m.group(1).strip()) < 30:
+                detected_major = grad_m.group(1).strip().title()
+
+        period_m = re.search(r"\b(20\d{2}\s*[\-\–]\s*(?:20\d{2}|Present|Sekarang))\b", target_edu_text, re.I)
+        period_str = period_m.group(1).strip() if period_m else "2020 - 2024"
 
         education_list.append({
             "institution": inst_name,
-            "degree": degree_str,
-            "major": detected_major if detected_major else "Related Field",
+            "degree": degree_name,
+            "major": detected_major if detected_major else "Related Discipline",
             "period": period_str
         })
 
-        # 8. Work Experience & Projects Extraction (Dynamic)
+        # 8. Work Experience Extraction (Isolated to EXPERIENCE Chunk)
         work_experiences = []
-        exp_roles = [
-            "Data Analyst", "Data Scientist", "Data Engineer", "Software Engineer", "Frontend Developer",
-            "Backend Developer", "Full Stack Developer", "Web Developer", "Machine Learning Engineer",
-            "Architect", "Junior Architect", "Drafter", "Interior Designer", "Civil Engineer",
-            "Quality Assurance", "QA Engineer", "Product Manager", "Project Manager", "Business Analyst",
-            "UI/UX Designer", "Graphic Designer", "Marketing Specialist", "Operations Staff", "Intern"
-        ]
-        
-        found_role = ""
-        for r in exp_roles:
-            if re.search(rf"\b{re.escape(r)}\b", text, re.I):
-                found_role = r
-                break
+        target_exp_text = exp_text if exp_text else (sections.get("PROJECTS", "") or "")
 
-        company_match = re.search(r"(?:at|di|pt\.?|cv\.?)\s+([a-zA-Z0-9\s\.\,\-]+?)(?=[,\n\r\|]|\s+(?:from|sejak|tahun|\d{4}|$))", text, re.I)
-        found_company = company_match.group(0).strip().title() if company_match else "Industry & Professional Projects"
+        if target_exp_text:
+            exp_lines = [l.strip() for l in target_exp_text.split("\n") if l.strip()]
+            first_exp_line = exp_lines[0]
+            role_comp_m = re.search(r"([^—\-\(]+)\s*[—\-]\s*([^\(]+)(?:\(([^)]+)\))?", first_exp_line)
+            if role_comp_m:
+                role = role_comp_m.group(1).strip().title()
+                comp = role_comp_m.group(2).strip().title()
+                exp_period = role_comp_m.group(3).strip() if role_comp_m.group(3) else "Recent Professional Experience"
+            else:
+                role = first_exp_line[:50].strip().title()
+                comp = "Professional Industry Project"
+                exp_period = "Recent"
 
-        exp_years_match = re.search(r"(\d+)\s*(?:\+|-\d+)?\s*(?:tahun|thn|years|yr)", text, re.I)
-        dur_exp = int(exp_years_match.group(1)) if exp_years_match else (2 if "experience" in text.lower() else 1)
+            exp_yrs_m = re.search(r"(\d+)\s*(?:\+|-\d+)?\s*(?:tahun|thn|years|yr)", target_exp_text, re.I)
+            dur_exp = int(exp_yrs_m.group(1)) if exp_yrs_m else 1
 
-        exp_period_match = re.search(r"((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|June|July|August|September|October|November|December|\d{4})\s*(?:\d{4})?\s*[\-\–]\s*(?:Present|Sekarang|\d{4}))", text, re.I)
-        exp_period = exp_period_match.group(1).strip() if exp_period_match else f"{dur_exp} Years Professional Experience"
+            bullet_points = " ".join(exp_lines[1:]) if len(exp_lines) > 1 else first_exp_line
 
-        # Summary or achievement snippet
-        summary_match = re.search(r"(?:summary|profile|about me|tentang saya|pengalaman)[\s\:\-]+([^\n\r]+(?:\n[^\n\r]+){1,3})", text, re.I)
-        achieve_text = summary_match.group(1).strip() if summary_match else text[:250] + "..."
+            work_experiences.append({
+                "role": role,
+                "company": comp,
+                "duration_years": dur_exp,
+                "period": exp_period,
+                "description": bullet_points[:400],
+                "achievements": bullet_points[:400]
+            })
+        else:
+            summary_m = re.search(r"(?:experience\s+in|background\s+in)\s+([^\.\n]+)", header_text, re.I)
+            exp_summary = summary_m.group(0).strip() if summary_m else "Hands-on project and domain execution experience."
+            work_experiences.append({
+                "role": "Independent Project Specialist",
+                "company": "Professional Projects",
+                "duration_years": 1,
+                "period": "1 Year Experience",
+                "description": exp_summary,
+                "achievements": exp_summary
+            })
 
-        work_experiences.append({
-            "role": found_role if found_role else "Professional Specialist",
-            "company": found_company,
-            "duration_years": dur_exp,
-            "period": exp_period,
-            "description": achieve_text,
-            "achievements": achieve_text
-        })
-
-        # 9. Skills Discovery (Expanded Comprehensive Modern Taxonomy)
+        # 9. Skills Discovery (Isolated to SKILLS Chunk & Full Document)
+        target_skills_text = (skills_text + " " + header_text + " " + exp_text).strip()
         known_tech_tools = [
             "AutoCAD", "SketchUp", "3ds Max", "Revit", "Adobe Photoshop", "Photoshop", "Illustrator",
             "Lumion", "Rhino", "Blender", "V-Ray", "ArchiCAD", "Figma", "Canva", "InDesign",
@@ -543,12 +573,12 @@ class DocumentParser:
         
         found_tech = []
         for t in known_tech_tools:
-            if re.search(rf"\b{re.escape(t)}\b", text, re.I) and t not in found_tech:
+            if re.search(rf"\b{re.escape(t)}\b", target_skills_text, re.I) and t not in found_tech:
                 found_tech.append(t)
 
         found_soft = []
         for s in known_soft_skills_list:
-            if re.search(rf"\b{re.escape(s)}\b", text, re.I) and s not in found_soft:
+            if re.search(rf"\b{re.escape(s)}\b", target_skills_text, re.I) and s not in found_soft:
                 found_soft.append(s)
 
         if not found_tech and not found_soft:
@@ -557,7 +587,6 @@ class DocumentParser:
         all_skills_combined = list(dict.fromkeys(found_tech + found_soft))
         tech_skills, soft_skills = DocumentParser.classify_skills(all_skills_combined)
         
-        # Ensure any found soft skills are explicitly retained in soft_skills
         for s in found_soft:
             if s not in soft_skills:
                 soft_skills.append(s)
