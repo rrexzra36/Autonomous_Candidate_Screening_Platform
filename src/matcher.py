@@ -170,31 +170,34 @@ Tanggung Jawab & Deskripsi:
 
             # 2. Google Gemini Provider
             else:
-                models_to_try = [self.model_name, "gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro"]
-                for model_name in models_to_try:
-                    if not model_name:
+                models_to_try = [
+                    self.model_name,
+                    "gemini-1.5-flash",
+                    "gemini-2.0-flash",
+                    "gemini-2.5-flash",
+                    "gemini-1.5-pro",
+                    "models/gemini-1.5-flash",
+                    "models/gemini-1.5-pro"
+                ]
+                for m_name in models_to_try:
+                    if not m_name:
                         continue
                     try:
                         from google import genai
                         client = genai.Client(api_key=self.api_key.strip())
                         response = client.models.generate_content(
-                            model=model_name,
+                            model=m_name,
                             contents=prompt
                         )
                         text = response.text
                         if text:
                             break
-                    except Exception:
-                        continue
-
-                if not text:
-                    for model_name in [self.model_name, "gemini-1.5-flash", "gemini-pro"]:
-                        if not model_name:
-                            continue
+                    except Exception as e:
+                        # Fallback to legacy SDK if google.genai has model naming variance
                         try:
                             import google.generativeai as legacy_genai
                             legacy_genai.configure(api_key=self.api_key.strip())
-                            model = legacy_genai.GenerativeModel(model_name)
+                            model = legacy_genai.GenerativeModel(m_name)
                             response = model.generate_content(prompt)
                             text = response.text
                             if text:
@@ -204,22 +207,18 @@ Tanggung Jawab & Deskripsi:
 
             if text:
                 try:
-                    cleaned_text = text.strip()
-                    if "```" in cleaned_text:
-                        parts = cleaned_text.split("```")
-                        for part in parts:
-                            if "{" in part and "}" in part:
-                                cleaned_text = part
-                                if cleaned_text.startswith("json"):
-                                    cleaned_text = cleaned_text[4:]
-                                break
-                    data = json.loads(cleaned_text.strip())
-                    pros = data.get("pros", [])
-                    cons = data.get("cons", [])
-                    if pros:
-                        return pros, cons
-                except Exception:
-                    pass
+                    raw_s = text.strip()
+                    s_idx = raw_s.find("{")
+                    e_idx = raw_s.rfind("}")
+                    if s_idx != -1 and e_idx != -1:
+                        json_content = raw_s[s_idx:e_idx+1]
+                        data = json.loads(json_content)
+                        pros = data.get("pros", [])
+                        cons = data.get("cons", [])
+                        if pros or cons:
+                            return pros, cons
+                except Exception as e:
+                    print(f"[Matcher AI Reasoning JSON Parse Error]: {e}")
 
         # Fallback Deterministic Heuristic Engine with Full Candidate Profile
         try:
