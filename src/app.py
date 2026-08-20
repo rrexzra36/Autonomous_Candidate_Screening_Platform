@@ -20,22 +20,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.path.join(BASE_DIR, "sample_data")
-
-@st.cache_data
-def load_preset_data():
-    with open(os.path.join(DATA_DIR, "job_descriptions.json"), "r", encoding="utf-8") as f:
-        jobs = json.load(f)
-    with open(os.path.join(DATA_DIR, "sample_cvs.json"), "r", encoding="utf-8") as f:
-        cvs = json.load(f)
-    return jobs, cvs
-
-preset_jobs, preset_cvs = load_preset_data()
-
 # Header
 st.title("🤖 Autonomous Candidate Screening Platform")
-st.caption("AI-Powered Talent Acquisition Engine for High-Volume Manufacturing Hiring with Ethical Blind Anonymization & Explainable AI (XAI)")
+st.caption("AI-Powered Talent Acquisition Engine for Rapid Screening with Ethical Blind Anonymization & Explainable AI (XAI)")
 
 st.markdown("---")
 
@@ -64,42 +51,33 @@ min_score = st.sidebar.slider("Minimum Shortlist Score Threshold (%):", 0, 100, 
 # ==========================================
 st.header("1️⃣ Pengaturan Posisi & Kriteria Lowongan (Job Description)")
 
-jd_source = st.radio(
-    "Pilih Sumber Job Description:",
-    ["📄 Upload PDF Job Description", "📂 Gunakan Preset Manufaktur"],
-    horizontal=True
+uploaded_jd_pdf = st.file_uploader(
+    "Upload Dokumen PDF Job Description (berisi Job Title, Requirements, Responsibilities):",
+    type=["pdf"],
+    key="jd_pdf_uploader"
 )
 
 active_job = None
 
-if jd_source == "📄 Upload PDF Job Description":
-    uploaded_jd_pdf = st.file_uploader("Upload Dokumen PDF Job Description (berisi Job Title, Requirements, Responsibilities):", type=["pdf"])
-    if uploaded_jd_pdf is not None:
-        with st.spinner("🤖 AI sedang membaca & memvalidasi PDF Job Description..."):
-            try:
-                jd_text = DocumentParser.extract_text_from_pdf(uploaded_jd_pdf.getvalue())
-                active_job = DocumentParser.parse_job_description(jd_text, api_key=active_api_key)
-                st.success(f"✅ Berhasil mengekstrak kriteria lowongan: **{active_job['title']}**")
-            except EmptyPDFError as e:
-                st.error(f"❌ **File PDF Tidak Dapat Dibaca / Kosong:** {str(e)}")
-                st.info("💡 **Solusi:** Pastikan berkas PDF memiliki teks digital (bukan hasil scan/foto tanpa layer OCR teks).")
-                active_job = None
-            except InvalidDocumentError as e:
-                st.error(f"❌ **Dokumen Tidak Sesuai:** {str(e)}")
-                st.warning("💡 **Tips:** Pastikan berkas yang diunggah benar-benar memuat informasi lowongan kerja, kualifikasi/syarat, atau deskripsi pekerjaan.")
-                active_job = None
-            except Exception as e:
-                st.error(f"❌ **Gagal Memproses PDF:** {str(e)}")
-                active_job = None
-    else:
-        st.info("Silakan upload file PDF Job Description, atau beralih ke 'Gunakan Preset Manufaktur'.")
-        active_job = preset_jobs[0]
+if uploaded_jd_pdf is not None:
+    with st.spinner("🤖 AI sedang membaca & memvalidasi PDF Job Description..."):
+        try:
+            jd_text = DocumentParser.extract_text_from_pdf(uploaded_jd_pdf.getvalue())
+            active_job = DocumentParser.parse_job_description(jd_text, api_key=active_api_key)
+            st.success(f"✅ Berhasil mengekstrak kriteria lowongan: **{active_job['title']}**")
+        except EmptyPDFError as e:
+            st.error(f"❌ **File PDF Tidak Dapat Dibaca / Kosong:** {str(e)}")
+            st.info("💡 **Solusi:** Pastikan berkas PDF memiliki teks digital (bukan hasil scan/foto tanpa layer OCR teks).")
+            active_job = None
+        except InvalidDocumentError as e:
+            st.error(f"❌ **Dokumen Tidak Sesuai:** {str(e)}")
+            st.warning("💡 **Tips:** Pastikan berkas yang diunggah benar-benar memuat informasi lowongan kerja, kualifikasi/syarat, atau deskripsi pekerjaan.")
+            active_job = None
+        except Exception as e:
+            st.error(f"❌ **Gagal Memproses PDF:** {str(e)}")
+            active_job = None
 else:
-    selected_preset_title = st.selectbox(
-        "Pilih Template Lowongan Manufaktur:",
-        [j["title"] for j in preset_jobs]
-    )
-    active_job = next(j for j in preset_jobs if j["title"] == selected_preset_title)
+    st.info("📄 Silakan upload berkas PDF Job Description untuk memulai proses seleksi.")
 
 # Display extracted/active Job Criteria
 if active_job:
@@ -125,61 +103,52 @@ st.markdown("---")
 # ==========================================
 st.header("2️⃣ Pengumpulan & Upload CV Kandidat")
 
-cv_source = st.radio(
-    "Pilih Sumber CV Kandidat:",
-    ["📤 Upload Berkas CV (Multiple PDF)", "📂 Gunakan Dataset Sampel CV"],
-    horizontal=True
+if "cv_uploader_key" not in st.session_state:
+    st.session_state["cv_uploader_key"] = 0
+
+col_up_title, col_clear_btn = st.columns([3, 1])
+with col_up_title:
+    st.markdown("**Unggah Dokumen CV Kandidat (Multiple PDF):**")
+with col_clear_btn:
+    if st.button("🗑️ Hapus Semua CV", help="Klik untuk menghapus/mereset seluruh berkas CV yang telah diunggah."):
+        st.session_state["cv_uploader_key"] += 1
+        st.rerun()
+
+uploaded_cv_files = st.file_uploader(
+    "Pilih atau drag & drop file PDF CV kandidat:",
+    type=["pdf"],
+    accept_multiple_files=True,
+    key=f"cv_uploader_{st.session_state['cv_uploader_key']}",
+    label_visibility="collapsed"
 )
 
 candidates_to_process = []
 
-if cv_source == "📤 Upload Berkas CV (Multiple PDF)":
-    if "cv_uploader_key" not in st.session_state:
-        st.session_state["cv_uploader_key"] = 0
+if uploaded_cv_files:
+    st.write(f"📁 **{len(uploaded_cv_files)} berkas CV diunggah untuk diproses.**")
+    invalid_cv_count = 0
+    with st.spinner("🤖 AI sedang memvalidasi dan mengekstrak seluruh PDF CV..."):
+        for cv_file in uploaded_cv_files:
+            try:
+                raw_text = DocumentParser.extract_text_from_pdf(cv_file.getvalue())
+                parsed_cv = DocumentParser.parse_candidate_cv(raw_text, filename=cv_file.name, api_key=active_api_key)
+                candidates_to_process.append(parsed_cv)
+            except EmptyPDFError:
+                st.warning(f"⚠️ **File Dilewati [{cv_file.name}]:** Berkas kosong atau scan gambar tanpa teks digital.")
+                invalid_cv_count += 1
+            except InvalidDocumentError as e:
+                st.warning(f"⚠️ **File Dilewati [{cv_file.name}]:** {str(e)}")
+                invalid_cv_count += 1
+            except Exception as e:
+                st.warning(f"⚠️ **Gagal Memproses [{cv_file.name}]:** {str(e)}")
+                invalid_cv_count += 1
 
-    col_up_title, col_clear_btn = st.columns([3, 1])
-    with col_up_title:
-        st.markdown("**Unggah Dokumen CV Kandidat (Multiple PDF):**")
-    with col_clear_btn:
-        if st.button("🗑️ Hapus Semua CV", help="Klik untuk menghapus/mereset seluruh berkas CV yang telah diunggah."):
-            st.session_state["cv_uploader_key"] += 1
-            st.rerun()
-
-    uploaded_cv_files = st.file_uploader(
-        "Pilih atau drag & drop file PDF CV kandidat:",
-        type=["pdf"],
-        accept_multiple_files=True,
-        key=f"cv_uploader_{st.session_state['cv_uploader_key']}",
-        label_visibility="collapsed"
-    )
-    if uploaded_cv_files:
-        st.write(f"📁 **{len(uploaded_cv_files)} berkas CV diunggah untuk diproses.**")
-        invalid_cv_count = 0
-        with st.spinner("🤖 AI sedang memvalidasi dan mengekstrak seluruh PDF CV..."):
-            for cv_file in uploaded_cv_files:
-                try:
-                    raw_text = DocumentParser.extract_text_from_pdf(cv_file.getvalue())
-                    parsed_cv = DocumentParser.parse_candidate_cv(raw_text, filename=cv_file.name, api_key=active_api_key)
-                    candidates_to_process.append(parsed_cv)
-                except EmptyPDFError:
-                    st.warning(f"⚠️ **File Dilewati [{cv_file.name}]:** Berkas kosong atau scan gambar tanpa teks digital.")
-                    invalid_cv_count += 1
-                except InvalidDocumentError as e:
-                    st.warning(f"⚠️ **File Dilewati [{cv_file.name}]:** {str(e)}")
-                    invalid_cv_count += 1
-                except Exception as e:
-                    st.warning(f"⚠️ **Gagal Memproses [{cv_file.name}]:** {str(e)}")
-                    invalid_cv_count += 1
-
-        if candidates_to_process:
-            st.success(f"✅ Berhasil memproses {len(candidates_to_process)} CV kandidat yang valid.")
-        elif invalid_cv_count > 0:
-            st.error("❌ Tidak ada CV valid yang dapat diproses. Silakan periksa kembali berkas Anda.")
-    else:
-        st.info("Silakan upload satu atau beberapa berkas CV dalam format PDF.")
+    if candidates_to_process:
+        st.success(f"✅ Berhasil memproses {len(candidates_to_process)} CV kandidat yang valid.")
+    elif invalid_cv_count > 0:
+        st.error("❌ Tidak ada CV valid yang dapat diproses. Silakan periksa kembali berkas Anda.")
 else:
-    candidates_to_process = preset_cvs
-    st.success(f"✅ Menggunakan {len(preset_cvs)} sampel CV bawaan manufaktur.")
+    st.info("📤 Silakan upload satu atau beberapa berkas CV kandidat dalam format PDF.")
 
 st.markdown("---")
 
@@ -275,9 +244,11 @@ if candidates_to_process and active_job:
         ])
         st.bar_chart(df_plot.set_index("Kandidat"))
 
+elif not active_job and not candidates_to_process:
+    st.info("💡 **Langkah Awal:** Silakan unggah dokumen PDF Job Description pada bagian (1) dan PDF CV kandidat pada bagian (2) di atas.")
 elif not active_job:
-    st.warning("⚠️ Silakan lengkapi atau perbaiki upload dokumen Job Description yang valid terlebih dahulu.")
-else:
-    st.info("Silakan unggah CV kandidat untuk memulai proses penapisan.")
+    st.warning("⚠️ Dokumen Job Description yang valid belum diunggah. Silakan unggah berkas PDF lowongan pada bagian (1).")
+elif not candidates_to_process:
+    st.info("💡 Dokumen lowongan siap. Silakan unggah berkas CV kandidat pada bagian (2) untuk menjalankan evaluasi.")
 
-st.caption("Autonomous Candidate Screening Platform v1.3.0 | AI Specialist Technical Assessment")
+st.caption("Autonomous Candidate Screening Platform v1.4.0 | AI Specialist Technical Assessment")
