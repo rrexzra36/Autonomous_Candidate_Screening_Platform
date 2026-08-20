@@ -83,14 +83,14 @@ else:
 
 enable_blind_cv = st.sidebar.toggle("🛡️ Blind-CV Anonymization (Bias Shield)", value=True, help="Otomatis menyamarkan PII kandidat sebelum scoring.")
 
-with st.sidebar.expander("⚙️ Checklist Field Blind-CV", expanded=False):
-    st.checkbox("👤 Nama Lengkap", value=True, key="chk_name")
-    st.checkbox("✉️ Alamat Email", value=True, key="chk_email")
-    st.checkbox("⚧️ Gender", value=True, key="chk_gender")
-    st.checkbox("🎂 Usia / Umur", value=True, key="chk_age")
-    st.checkbox("📍 Alamat Domisili", value=True, key="chk_address")
-    st.checkbox("🖼️ Foto Profil", value=True, key="chk_photo")
-    st.checkbox("🎓 Universitas / Kampus", value=True, key="chk_univ")
+st.sidebar.markdown("**Parameter yang Dianonimkan:**")
+st.sidebar.checkbox("👤 Nama Lengkap", value=True, key="chk_name", disabled=not enable_blind_cv)
+st.sidebar.checkbox("✉️ Alamat Email", value=True, key="chk_email", disabled=not enable_blind_cv)
+st.sidebar.checkbox("⚧️ Gender", value=True, key="chk_gender", disabled=not enable_blind_cv)
+st.sidebar.checkbox("🎂 Usia / Umur", value=True, key="chk_age", disabled=not enable_blind_cv)
+st.sidebar.checkbox("📍 Alamat Domisili", value=True, key="chk_address", disabled=not enable_blind_cv)
+st.sidebar.checkbox("🖼️ Foto Profil", value=True, key="chk_photo", disabled=not enable_blind_cv)
+st.sidebar.checkbox("🎓 Universitas / Kampus", value=True, key="chk_univ", disabled=not enable_blind_cv)
 
 min_score = st.sidebar.slider("Minimum Shortlist Score Threshold (%):", 0, 100, 60, 5)
 
