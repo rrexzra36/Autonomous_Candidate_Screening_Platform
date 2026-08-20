@@ -1,4 +1,3 @@
-
 """
 Autonomous Candidate Screening Platform - Streamlit HR Dashboard
 Run with: streamlit run src/app.py
@@ -82,8 +81,28 @@ if active_api_key:
 else:
     st.sidebar.info("⚡ Local Intelligent Rule Engine (Offline)")
 
-enable_blind_cv = st.sidebar.toggle("🛡️ Blind-CV Anonymization (Bias Shield)", value=True, help="Otomatis menyamarkan Nama, Foto, Gender, Usia, dan Almamater sebelum scoring.")
+enable_blind_cv = st.sidebar.toggle("🛡️ Blind-CV Anonymization (Bias Shield)", value=True, help="Otomatis menyamarkan PII kandidat sebelum scoring.")
+
+with st.sidebar.expander("⚙️ Checklist Field Blind-CV", expanded=False):
+    st.checkbox("👤 Nama Lengkap", value=True, key="chk_name")
+    st.checkbox("✉️ Alamat Email", value=True, key="chk_email")
+    st.checkbox("⚧️ Gender", value=True, key="chk_gender")
+    st.checkbox("🎂 Usia / Umur", value=True, key="chk_age")
+    st.checkbox("📍 Alamat Domisili", value=True, key="chk_address")
+    st.checkbox("🖼️ Foto Profil", value=True, key="chk_photo")
+    st.checkbox("🎓 Universitas / Kampus", value=True, key="chk_univ")
+
 min_score = st.sidebar.slider("Minimum Shortlist Score Threshold (%):", 0, 100, 60, 5)
+
+# Active Masked Fields list
+active_masked_fields = []
+if st.session_state.get("chk_name", True): active_masked_fields.append("full_name")
+if st.session_state.get("chk_email", True): active_masked_fields.append("email")
+if st.session_state.get("chk_gender", True): active_masked_fields.append("gender")
+if st.session_state.get("chk_age", True): active_masked_fields.append("age")
+if st.session_state.get("chk_photo", True): active_masked_fields.append("photo_url")
+if st.session_state.get("chk_address", True): active_masked_fields.append("address")
+if st.session_state.get("chk_univ", True): active_masked_fields.append("university")
 
 # ==========================================
 # STEP 1: JOB DESCRIPTION (KRITERIA LOWONGAN)
@@ -255,7 +274,7 @@ if candidates_to_process and active_job:
     evaluated_results = []
 
     for raw_cv in candidates_to_process:
-        cv_to_process = BlindCVAnonymizer.anonymize_cv(raw_cv) if enable_blind_cv else raw_cv
+        cv_to_process = BlindCVAnonymizer.anonymize_cv(raw_cv, enabled_fields=active_masked_fields) if enable_blind_cv else raw_cv
         eval_res = matcher.evaluate_candidate(cv_to_process, active_job)
         eval_res["raw_cv"] = raw_cv
         eval_res["anonymized_cv"] = cv_to_process
@@ -263,7 +282,7 @@ if candidates_to_process and active_job:
 
     evaluated_results.sort(key=lambda x: x["overall_score"], reverse=True)
 
-    tab1, tab2, tab3 = st.tabs(["🏆 Leaderboard & Hasil Seleksi", "🛡️ Audit Blind-CV (Anti-Bias)", "📊 Distribusi & Analisis"])
+    tab1, tab2, tab3 = st.tabs(["🏆 Leaderboard & Hasil Seleksi", "🛡️ Blind-CV Anonymization", "📊 Distribusi & Analisis"])
 
     with tab1:
         st.subheader(f"Hasil Evaluasi Kandidat untuk Posisi: {active_job['title']}")
@@ -305,11 +324,27 @@ if candidates_to_process and active_job:
                 st.markdown("---")
 
     with tab2:
-        st.subheader("🛡️ Verifikasi Blind-CV Anonymization (Etika AI & Anti-Bias)")
-        st.info("Fitur ini menunjukkan bagaimana identitas pribadi (Nama, Gender, Foto, Umur, Nama Universitas) disamarkan sebelum data dikirim ke sistem penilaian, memastikan seleksi 100% berdasarkan rekam jejak & kompetensi.")
+        st.subheader("🛡️ Blind-CV Anonymization (Konfigurasi & Audit Bias)")
+        st.info("Fitur ini memungkinkan Anda memilih secara spesifik informasi pribadi (PII) yang ingin disamarkan sebelum data dikirim ke sistem penilaian, memastikan evaluasi 100% berbasis kompetensi & rekam jejak.")
         
+        with st.container(border=True):
+            st.markdown("#### ⚙️ Checklist Parameter yang Dianonimkan (Masking Rules):")
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                st.write(f"👤 **Nama Lengkap:** {'✅ Aktif' if 'full_name' in active_masked_fields else '❌ Nonaktif'}")
+                st.write(f"✉️ **Alamat Email:** {'✅ Aktif' if 'email' in active_masked_fields else '❌ Nonaktif'}")
+            with c2:
+                st.write(f"⚧️ **Gender:** {'✅ Aktif' if 'gender' in active_masked_fields else '❌ Nonaktif'}")
+                st.write(f"🎂 **Usia / Umur:** {'✅ Aktif' if 'age' in active_masked_fields else '❌ Nonaktif'}")
+            with c3:
+                st.write(f"📍 **Alamat Domisili:** {'✅ Aktif' if 'address' in active_masked_fields else '❌ Nonaktif'}")
+                st.write(f"🖼️ **Foto Profil:** {'✅ Aktif' if 'photo_url' in active_masked_fields else '❌ Nonaktif'}")
+            with c4:
+                st.write(f"🎓 **Universitas / Kampus:** {'✅ Aktif' if 'university' in active_masked_fields else '❌ Nonaktif'}")
+            st.caption("💡 *Ubah checklist melalui menu sidebar '⚙️ Checklist Field Blind-CV' untuk menyesuaikan parameter secara real-time.*")
+
         cv_options = [c["cv_id"] for c in evaluated_results]
-        selected_audit_id = st.selectbox("Pilih CV untuk Diaudit:", cv_options)
+        selected_audit_id = st.selectbox("Pilih CV untuk Diaudit & Dibandingkan:", cv_options)
         target_audit = next(c for c in evaluated_results if c["cv_id"] == selected_audit_id)
         
         col_left, col_right = st.columns(2)
@@ -317,7 +352,7 @@ if candidates_to_process and active_job:
             st.error("❌ Data Mentah CV Asli (Rentan Bias Manusia)")
             st.json(target_audit["raw_cv"].get("personal_info", {}))
         with col_right:
-            st.success("✅ Data Blind-CV yang Diterima AI (Bebas Bias)")
+            st.success("✅ Data Blind-CV yang Diterima AI (Sesuai Checklist Aktif)")
             st.json(target_audit["anonymized_cv"].get("personal_info", {}))
 
     with tab3:
@@ -339,4 +374,4 @@ elif not active_job:
 elif not candidates_to_process:
     st.info("💡 Dokumen lowongan siap. Silakan unggah berkas CV kandidat pada bagian (2) untuk menjalankan evaluasi.")
 
-st.caption("Autonomous Candidate Screening Platform v1.5.0 | AI Specialist Technical Assessment")
+st.caption("Autonomous Candidate Screening Platform v1.6.0 | AI Specialist Technical Assessment")
