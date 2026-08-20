@@ -348,17 +348,14 @@ if candidates_to_process and active_job:
                     else:
                         st.markdown("- *Tidak tercantum data pendidikan.*")
 
-                    st.markdown("##### 💼 Pengalaman Kerja & Rekam Jejak Proyek")
+                    st.markdown("##### 💼 Pengalaman Kerja & Rekam Jejak")
                     exp_list = active_profile.get("work_experience", [])
                     if exp_list:
                         for exp in exp_list:
                             role = exp.get("role", "Posisi")
                             comp = exp.get("company", "Perusahaan")
                             period = exp.get("period", f"{exp.get('duration_years', 0)} Tahun")
-                            ach = exp.get("achievements", "")
                             st.markdown(f"- **{role}** di **{comp}** *({period})*")
-                            if ach:
-                                st.caption(f"  📝 *Proyek / Tanggung Jawab:* {ach}")
                     else:
                         st.markdown("- *Tidak ada riwayat kerja spesifik.*")
 
@@ -368,7 +365,7 @@ if candidates_to_process and active_job:
                         tech_list = active_profile.get("technical_skills", [])
                         if tech_list:
                             for t in tech_list:
-                                st.markdown(f"- `{t}`")
+                                st.markdown(f"- {t}")
                         else:
                             st.markdown("- *Tidak tercantum skill teknis khusus.*")
 
@@ -377,7 +374,7 @@ if candidates_to_process and active_job:
                         soft_list = active_profile.get("soft_skills", [])
                         if soft_list:
                             for s in soft_list:
-                                st.markdown(f"- `{s}`")
+                                st.markdown(f"- {s}")
                         else:
                             st.markdown("- *Tidak tercantum soft skill khusus.*")
 
