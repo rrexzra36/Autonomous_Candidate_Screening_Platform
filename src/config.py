@@ -19,7 +19,7 @@ class Config:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
     LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")
-    LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "gemini-1.5-flash")
+    LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "gemini-2.5-flash")
 
     @classmethod
     def get_active_gemini_key(cls, override_key: str = "") -> str:

@@ -680,7 +680,7 @@ Struktur JSON yang WAJIB dihasilkan:
         return res
 
     @staticmethod
-    def _call_llm_json(prompt: str, api_key: str, provider: str = "gemini", model_name: str = "gemini-1.5-flash") -> Dict[str, Any]:
+    def _call_llm_json(prompt: str, api_key: str, provider: str = "gemini", model_name: str = "gemini-2.5-flash") -> Dict[str, Any]:
         text = None
         
         # 1. OpenAI Provider
@@ -703,39 +703,39 @@ Struktur JSON yang WAJIB dihasilkan:
 
         # 2. Google Gemini Provider
         else:
-            try:
-                from google import genai
-                client = genai.Client(api_key=api_key.strip())
-                response = client.models.generate_content(
-                    model=model_name or "gemini-1.5-flash",
-                    contents=prompt
-                )
-                text = response.text
-            except Exception:
-                pass
-
-            if not text:
+            models_to_try = [model_name, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-pro", "gemini-1.5-flash"]
+            for m in models_to_try:
+                if not m: continue
                 try:
-                    import google.generativeai as legacy_genai
-                    legacy_genai.configure(api_key=api_key.strip())
-                    model = legacy_genai.GenerativeModel(model_name or "gemini-1.5-flash")
-                    response = model.generate_content(prompt)
+                    from google import genai
+                    client = genai.Client(api_key=api_key.strip())
+                    response = client.models.generate_content(
+                        model=m,
+                        contents=prompt
+                    )
                     text = response.text
+                    if text:
+                        break
                 except Exception:
-                    pass
+                    try:
+                        import google.generativeai as legacy_genai
+                        legacy_genai.configure(api_key=api_key.strip())
+                        model = legacy_genai.GenerativeModel(m)
+                        response = model.generate_content(prompt)
+                        text = response.text
+                        if text:
+                            break
+                    except Exception:
+                        continue
 
         if text:
-            cleaned_text = text.strip()
-            if "```" in cleaned_text:
-                parts = cleaned_text.split("```")
-                for part in parts:
-                    if "{" in part and "}" in part:
-                        cleaned_text = part
-                        if cleaned_text.startswith("json"):
-                            cleaned_text = cleaned_text[4:]
-                        break
             try:
-                return json.loads(cleaned_text.strip())
+                raw_s = text.strip()
+                s_idx = raw_s.find("{")
+                e_idx = raw_s.rfind("}")
+                if s_idx != -1 and e_idx != -1:
+                    json_str = raw_s[s_idx:e_idx+1]
+                    return json.loads(json_str)
             except Exception:
                 pass
         return None

@@ -39,13 +39,13 @@ provider_choice = st.sidebar.selectbox(
 
 if provider_choice == "Google Gemini":
     selected_provider = "gemini"
-    model_options = ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro"]
-    default_model = Config.LLM_MODEL_NAME if Config.LLM_MODEL_NAME in model_options else "gemini-1.5-flash"
+    model_options = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"]
+    default_model = Config.LLM_MODEL_NAME if Config.LLM_MODEL_NAME in model_options else "gemini-2.5-flash"
     selected_model = st.sidebar.selectbox(
         "Pilih Model Gemini:",
         model_options,
         index=model_options.index(default_model) if default_model in model_options else 0,
-        help="gemini-1.5-flash: Cepat & hemat kuota. gemini-1.5-pro: Penalaran mendalam."
+        help="gemini-2.5-flash / 2.0-flash: Generasi terbaru Google GenAI v2/v3, cepat & cerdas."
     )
     
     env_gemini_key = Config.GEMINI_API_KEY
@@ -82,14 +82,24 @@ if active_api_key:
         with st.sidebar.status("Menghubungi endpoint AI...", expanded=True) as status_box:
             try:
                 test_text = None
+                success_model = selected_model
                 if selected_provider == "gemini":
                     from google import genai
                     client = genai.Client(api_key=active_api_key)
-                    res = client.models.generate_content(
-                        model=selected_model or "gemini-1.5-flash",
-                        contents="Katakan 'OK' dalam 1 kata."
-                    )
-                    test_text = res.text
+                    models_to_test = [selected_model, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-pro", "gemini-1.5-flash"]
+                    for m in models_to_test:
+                        if not m: continue
+                        try:
+                            res = client.models.generate_content(
+                                model=m,
+                                contents="Katakan 'OK' dalam 1 kata."
+                            )
+                            test_text = res.text
+                            if test_text:
+                                success_model = m
+                                break
+                        except Exception:
+                            continue
                 else:
                     import openai
                     client = openai.OpenAI(api_key=active_api_key)
@@ -101,9 +111,10 @@ if active_api_key:
                 
                 if test_text:
                     status_box.update(label="✅ Koneksi API Sukses!", state="complete", expanded=False)
-                    st.sidebar.success(f"Berhasil terhubung ke **{selected_model}**.")
+                    st.sidebar.success(f"Berhasil terhubung ke **{success_model}**.")
                 else:
-                    status_box.update(label="⚠️ Respon Kosong", state="error")
+                    status_box.update(label="❌ Gagal Terhubung ke API", state="error", expanded=True)
+                    st.sidebar.error("❌ Model tidak merespons. Silakan coba pilih variasi model lain (misal: gemini-2.5-flash / gemini-2.0-flash).")
             except Exception as e:
                 err_str = str(e)
                 status_box.update(label="❌ Gagal Terhubung ke API", state="error", expanded=True)
@@ -111,6 +122,8 @@ if active_api_key:
                     st.sidebar.error("⚠️ **Limit Kuota Tercapai (Rate Limit 429):** Kuota request akun Gemini Anda telah habis. Tunggu 1 menit atau buat API key baru gratis di Google AI Studio.")
                 elif "400" in err_str or "API_KEY_INVALID" in err_str:
                     st.sidebar.error("❌ **API Key Tidak Valid (400):** Periksa kembali karakter API key yang Anda masukkan.")
+                elif "404" in err_str:
+                    st.sidebar.error(f"❌ **Model Tidak Ditemukan (404):** Silakan pilih model generasi baru seperti **gemini-2.5-flash** atau **gemini-2.0-flash** pada dropdown.")
                 else:
                     st.sidebar.error(f"❌ **Error API:** {err_str}")
 else:
