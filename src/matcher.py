@@ -111,42 +111,40 @@ class CandidateMatcherEngine:
         """
         if self.api_key and self.api_key.strip():
             prompt = f"""
-Anda adalah Senior Technical Recruiter dan AI Hiring Specialist tingkat lanjut.
-Tugas Anda adalah menganalisis profil kandidat ini secara akurat dan menyajikan analisis Keunggulan (Pros) dan Catatan Gap (Cons) berdasarkan kecocokan terhadap lowongan pekerjaan.
+Anda adalah Senior Technical Recruiter dan AI Talent Acquisition Specialist.
+Berikan evaluasi mendalam, tajam, dan objektif mengenai kesesuaian kandidat terhadap lowongan pekerjaan berikut.
 
-=== DATA LOWONGAN PEKERJAAN (JOB VACANCY) ===
+=== DATA LOWONGAN PEKERJAAN ===
 Posisi: {job.get('title')}
-Jurusan/Prodi: {job.get('major', 'Terkait')}
-Pendidikan Minimal: {job.get('hard_requirements', {}).get('min_education', 'S1')}
+Pendidikan & Jurusan: {job.get('hard_requirements', {}).get('min_education', 'S1')} ({job.get('major', 'Terkait')})
 Pengalaman Minimal: {job.get('hard_requirements', {}).get('min_experience_years', 0)} Tahun
 Technical Skills Dibutuhkan: {', '.join(job.get('technical_skills', job.get('key_skills', [])))}
 Soft Skills Dibutuhkan: {', '.join(job.get('soft_skills', []))}
 Tanggung Jawab & Deskripsi:
 {job.get('responsibilities', job.get('description', ''))}
 
-=== DATA CV KANDIDAT (LENGKAP) ===
+=== DATA PROFIL KANDIDAT (BLIND-CV / MERIT BASED) ===
 {json.dumps(cv, indent=2, ensure_ascii=False)}
 
-=== INSTRUKSI KHUSUS ANALISIS ===
-1. Pada "pros":
-   - Sebutkan SELURUH Technical Skills yang dimiliki kandidat dari CV-nya.
-   - Sebutkan SELURUH Soft Skills yang dimiliki kandidat dari CV-nya.
-   - Cantumkan total durasi pengalaman dan pendidikan asli kandidat.
-2. Pada "cons":
-   - Cantumkan Technical Skills atau Soft Skills yang diminta lowongan tapi BELUM tercantum di CV kandidat ini.
-   - Cantumkan kekurangan durasi pengalaman jika ada.
+=== INSTRUKSI ANALISIS (EXPLAINABLE AI) ===
+1. PROS (Keunggulan & Potensi Nilai Tambah Kandidat):
+   - Analisis kekuatan rekam jejak proyek/pekerjaan riil kandidat terhadap kebutuhan posisi ini.
+   - Analisis penguasaan software teknis & kompetensi inti yang siap diaplikasikan.
+   - Sebutkan soft skills, etos kerja, atau prestasi yang memperkuat profil kandidat.
+2. CONS (Catatan Kesenjangan / Area Pertimbangan):
+   - Analisis skill teknis (software/tools) atau sertifikasi penting yang diminta lowongan namun belum tercantum di CV kandidat.
+   - Analisis kesenjangan pengalaman, jenjang, atau ruang adaptasi yang dibutuhkan kandidat.
 
-=== FORMAT OUTPUT (WAJIB JSON MURNI) ===
+=== FORMAT OUTPUT (WAJIB JSON MURNI TANPA EMOJI) ===
 {{
   "pros": [
-    "Technical Skills yang dimiliki: [seluruh skill teknis dari CV]",
-    "Soft Skills yang dimiliki: [seluruh soft skill dari CV]",
-    "[Durasi pengalaman dan latar belakang pendidikan]"
+    "Poin analisis keunggulan portofolio & proyek nyata kandidat...",
+    "Poin analisis penguasaan tools dan software utama yang relevan...",
+    "Poin analisis soft skills dan kekuatan rekam jejak kerja..."
   ],
   "cons": [
-    "Belum mencantumkan Technical Skills: [skill teknis yang diminta lowongan tapi belum ada di CV jika ada]",
-    "Belum mencantumkan Soft Skills: [soft skill yang diminta lowongan tapi belum ada di CV jika ada]",
-    "[Catatan gap pengalaman jika ada]"
+    "Poin analisis kesenjangan software / tools teknis yang belum tercantum...",
+    "Poin analisis ruang adaptasi atau gap kualifikasi terhadap lowongan..."
   ]
 }}
 """
