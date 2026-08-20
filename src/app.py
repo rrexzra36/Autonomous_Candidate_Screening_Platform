@@ -390,11 +390,11 @@ tab_upload, tab_drive = st.tabs(["📤 Upload Berkas PDF Manual", "📁 Impor da
 raw_cv_items = []
 
 with tab_upload:
-    col_up_title, col_clear_btn = st.columns([3, 1])
+    col_up_title, col_clear_btn = st.columns([3, 1], vertical_alignment="center")
     with col_up_title:
         st.markdown("**Unggah Dokumen CV Kandidat (Multiple PDF):**")
     with col_clear_btn:
-        if st.button("🗑️ Hapus Semua CV", help="Klik untuk menghapus/mereset seluruh berkas CV yang telah diunggah."):
+        if st.button("🗑️ Hapus Semua CV", use_container_width=True, help="Klik untuk menghapus/mereset seluruh berkas CV yang telah diunggah."):
             st.session_state["cv_uploader_key"] += 1
             st.session_state["parsed_cv_store"] = {}
             st.session_state["eval_results_store"] = {}
