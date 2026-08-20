@@ -177,29 +177,6 @@ st.sidebar.markdown("---")
 
 min_score = st.sidebar.slider("Minimum Shortlist Score Threshold (%):", 0, 100, 60, 5)
 
-st.sidebar.markdown("---")
-
-enable_blind_cv = st.sidebar.toggle("🛡️ Blind-CV Anonymization", value=True, help="Otomatis menyamarkan PII kandidat sebelum scoring.")
-
-st.sidebar.markdown("**Parameter:**")
-st.sidebar.checkbox("Nama Lengkap", value=True, key="chk_name", disabled=not enable_blind_cv)
-st.sidebar.checkbox("Alamat Email", value=True, key="chk_email", disabled=not enable_blind_cv)
-st.sidebar.checkbox("Gender", value=True, key="chk_gender", disabled=not enable_blind_cv)
-st.sidebar.checkbox("Usia / Umur", value=True, key="chk_age", disabled=not enable_blind_cv)
-st.sidebar.checkbox("Alamat Domisili", value=True, key="chk_address", disabled=not enable_blind_cv)
-st.sidebar.checkbox("Foto Profil", value=True, key="chk_photo", disabled=not enable_blind_cv)
-st.sidebar.checkbox("Universitas / Kampus", value=True, key="chk_univ", disabled=not enable_blind_cv)
-
-# Active Masked Fields list
-active_masked_fields = []
-if st.session_state.get("chk_name", True): active_masked_fields.append("full_name")
-if st.session_state.get("chk_email", True): active_masked_fields.append("email")
-if st.session_state.get("chk_gender", True): active_masked_fields.append("gender")
-if st.session_state.get("chk_age", True): active_masked_fields.append("age")
-if st.session_state.get("chk_photo", True): active_masked_fields.append("photo_url")
-if st.session_state.get("chk_address", True): active_masked_fields.append("address")
-if st.session_state.get("chk_univ", True): active_masked_fields.append("university")
-
 # Effective API connection parameters
 is_ai_connected = st.session_state.get("api_connected", False) and bool(active_api_key)
 effective_api_key = active_api_key if is_ai_connected else ""
@@ -300,6 +277,45 @@ if active_job:
         st.markdown(f"**Technical Skills:** {', '.join(t_skills) if t_skills else '-'}")
         st.markdown(f"**Soft Skills:** {', '.join(s_skills) if s_skills else '-'}")
         st.markdown(f"**Tanggung Jawab (Responsibilities):**\n\n{active_job.get('responsibilities', active_job.get('description', ''))}")
+
+st.markdown("---")
+
+# ==========================================
+# PROTOKOL ANTI-BIAS & PRIVASI (BLIND-CV)
+# ==========================================
+active_masked_fields = []
+
+with st.container(border=True):
+    col_blind_title, col_blind_badge = st.columns([3, 2])
+    with col_blind_title:
+        st.markdown("#### 🛡️ Protokol Anti-Bias & Privasi (Blind-CV Anonymization)")
+        enable_blind_cv = st.toggle(
+            "Aktifkan Blind-CV Anonymization Layer",
+            value=True,
+            help="Otomatis menyamarkan informasi pribadi sensitif (PII) sebelum dievaluasi AI guna memastikan penilaian 100% berbasis keahlian (merit-based)."
+        )
+
+    if enable_blind_cv:
+        with col_blind_badge:
+            st.success("🟢 **Proteksi Aktif:** PII Disamarkan Sebelum Scoring")
+        
+        st.markdown("**Pilih Parameter Identitas yang Ingin Disamarkan:**")
+        col_c1, col_c2, col_c3, col_c4 = st.columns(4)
+        with col_c1:
+            if st.checkbox("Nama Lengkap", value=True, key="chk_name"): active_masked_fields.append("full_name")
+            if st.checkbox("Alamat Email", value=True, key="chk_email"): active_masked_fields.append("email")
+        with col_c2:
+            if st.checkbox("Gender / Kelamin", value=True, key="chk_gender"): active_masked_fields.append("gender")
+            if st.checkbox("Usia / Umur", value=True, key="chk_age"): active_masked_fields.append("age")
+        with col_c3:
+            if st.checkbox("Alamat Domisili", value=True, key="chk_address"): active_masked_fields.append("address")
+            if st.checkbox("Foto Profil", value=True, key="chk_photo"): active_masked_fields.append("photo_url")
+        with col_c4:
+            if st.checkbox("Nama Kampus / Univ", value=True, key="chk_univ"): active_masked_fields.append("university")
+            if st.checkbox("Nomor Telepon", value=True, key="chk_phone"): active_masked_fields.append("phone")
+    else:
+        with col_blind_badge:
+            st.info("⚪ **Mode Standar:** Penilaian Tanpa Penyamaran Data")
 
 st.markdown("---")
 
@@ -521,24 +537,9 @@ if candidates_to_process and active_job:
                             st.markdown(f"- {con}")
 
     with tab2:
-        st.subheader("🛡️ Blind-CV Anonymization (Konfigurasi & Audit Bias)")
+        st.subheader("🛡️ Blind-CV Anonymization")
         st.info("Fitur ini memungkinkan Anda memilih secara spesifik informasi pribadi (PII) yang ingin disamarkan sebelum data dikirim ke sistem penilaian, memastikan evaluasi 100% berbasis kompetensi & rekam jejak.")
         
-        with st.container(border=True):
-            st.markdown("#### ⚙️ Checklist Parameter yang Dianonimkan (Masking Rules):")
-            c1, c2, c3, c4 = st.columns(4)
-            with c1:
-                st.write(f"**Nama Lengkap:** {'✅ Aktif' if 'full_name' in active_masked_fields else '❌ Nonaktif'}")
-                st.write(f"**Alamat Email:** {'✅ Aktif' if 'email' in active_masked_fields else '❌ Nonaktif'}")
-            with c2:
-                st.write(f"**Gender:** {'✅ Aktif' if 'gender' in active_masked_fields else '❌ Nonaktif'}")
-                st.write(f"**Usia / Umur:** {'✅ Aktif' if 'age' in active_masked_fields else '❌ Nonaktif'}")
-            with c3:
-                st.write(f"**Alamat Domisili:** {'✅ Aktif' if 'address' in active_masked_fields else '❌ Nonaktif'}")
-                st.write(f"**Foto Profil:** {'✅ Aktif' if 'photo_url' in active_masked_fields else '❌ Nonaktif'}")
-            with c4:
-                st.write(f"**Universitas / Kampus:** {'✅ Aktif' if 'university' in active_masked_fields else '❌ Nonaktif'}")
-            st.caption("💡 *Ubah checklist melalui menu sidebar '⚙️ Checklist Field Blind-CV' untuk menyesuaikan parameter secara real-time.*")
 
         cv_options = [c["cv_id"] for c in evaluated_results]
         selected_audit_id = st.selectbox("Pilih CV untuk Diaudit & Dibandingkan:", cv_options)
