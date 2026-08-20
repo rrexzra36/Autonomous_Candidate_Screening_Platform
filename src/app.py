@@ -284,17 +284,14 @@ if candidates_to_process and active_job:
         st.markdown("### 📋 Daftar Kandidat Terurut (Ranking)")
 
         for rank, item in enumerate(evaluated_results, start=1):
-            is_passed = item["overall_score"] >= min_score and item["hard_filter_passed"]
-            status_icon = "🟢" if is_passed else ("🟡" if item["overall_score"] >= 50 else "🔴")
             display_name = item["candidate_alias"] if enable_blind_cv else item["raw_cv"]["personal_info"].get("full_name", item["cv_id"])
             
             with st.container(border=True):
-                st.markdown(f"#### #{rank} {status_icon} **{display_name}** — Skor Kecocokan: **{item['overall_score']}%**")
+                st.markdown(f"#### #{rank} **{display_name}** — Skor Kecocokan: **{item['overall_score']}%**")
                 
-                col_a, col_b, col_c = st.columns(3)
+                col_a, col_b = st.columns(2)
                 col_a.markdown(f"📌 **Status Rekomendasi:** `{item['status']}`")
                 col_b.markdown(f"🎯 **Kesesuaian Skill:** `{item['score_breakdown']['skill_match']}%`")
-                col_c.markdown(f"⏱️ **Durasi Pengalaman:** `{item['score_breakdown']['experience_depth']}%`")
                 
                 with st.expander("🔍 Lihat Analisis Transparan AI (Pros, Cons, & Rekomendasi Wawancara)"):
                     st.markdown("**✅ Keunggulan Kandidat (Pros):**")

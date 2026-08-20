@@ -83,7 +83,7 @@ class CandidateMatcherEngine:
             anonymized_cv, job_desc, matched_skills, jd_skills, total_exp, min_exp, knockout_reasons
         )
 
-        status = "SHORTLISTED" if (overall_score >= 70 and hard_filter_passed) else ("CONSIDERATION" if overall_score >= 50 else "REJECTED")
+        status = "Pass" if (overall_score >= 70 and hard_filter_passed) else ("Considered" if overall_score >= 50 else "Rejected")
 
         return {
             "cv_id": cv_id,
