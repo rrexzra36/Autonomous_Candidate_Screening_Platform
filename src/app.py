@@ -596,8 +596,6 @@ else:
                     col_a, col_b = st.columns(2)
                     col_a.markdown(f"📌 **Recommendation Status:** `{item['status']}`")
                     col_b.markdown(f"🎯 **Skill Compatibility:** `{item['score_breakdown']['skill_match']}%`")
-                    if item.get("eval_source"):
-                        st.caption(f"⚡ *Analysis Engine:* `{item['eval_source']}`")
                     
                     with st.expander("Review"):
                         active_profile = item["raw_cv"]
