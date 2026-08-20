@@ -418,6 +418,8 @@ with tab_upload:
             st.session_state["cv_uploader_key"] += 1
             st.session_state["parsed_cv_store"] = {}
             st.session_state["eval_results_store"] = {}
+            st.session_state["analysis_triggered"] = False
+            st.session_state["analyzed_dataset_sig"] = ""
             st.rerun()
 
     uploaded_cv_files = st.file_uploader(
@@ -439,6 +441,8 @@ with tab_drive:
         if st.button("🗑️ Reset Drive Files", key="btn_reset_cv_drive", use_container_width=True, help="Click to clear and reset all files imported from Google Drive."):
             st.session_state["drive_cv_files"] = []
             st.session_state["eval_results_store"] = {}
+            st.session_state["analysis_triggered"] = False
+            st.session_state["analyzed_dataset_sig"] = ""
             st.rerun()
     
     col_dr_in, col_dr_btn = st.columns([3, 1], vertical_alignment="bottom")
@@ -522,6 +526,13 @@ if not active_job:
 elif not candidates_to_process:
     st.info("📤 Please upload or import **Candidate CVs** in **Step 2** first.")
 else:
+    # Compute unique dataset signature of the current pool of candidate CVs & active job
+    current_dataset_sig = f"{active_job.get('job_id', '')}_{len(candidates_to_process)}_{'_'.join(sorted([c.get('cv_id', '') for c in candidates_to_process]))}"
+
+    # If candidate pool has changed since the last executed analysis, reset analysis_triggered to require clicking Start AI Analysis again
+    if st.session_state.get("analyzed_dataset_sig") and st.session_state.get("analyzed_dataset_sig") != current_dataset_sig:
+        st.session_state["analysis_triggered"] = False
+
     with st.container(border=True):
         st.markdown(f"Ready to evaluate **{len(candidates_to_process)} candidate CVs** for **{active_job['title']}**.")
         
@@ -583,6 +594,7 @@ else:
             is_disabled = (total_weight != 100)
             if st.button("🚀 Start AI Analysis", type="primary", use_container_width=True, disabled=is_disabled):
                 st.session_state["analysis_triggered"] = True
+                st.session_state["analyzed_dataset_sig"] = current_dataset_sig
                 st.rerun()
 
     if st.session_state.get("analysis_triggered"):
