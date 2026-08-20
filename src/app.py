@@ -1,3 +1,4 @@
+
 """
 Autonomous Candidate Screening Platform - Streamlit HR Dashboard
 Run with: streamlit run src/app.py
@@ -77,9 +78,9 @@ else:
     active_api_key = Config.get_active_openai_key(api_key_input)
 
 if active_api_key:
-    st.sidebar.success(f"✨ {provider_choice} ({selected_model}): Terhubung")
+    st.sidebar.success(f"✨ {provider_choice} (Connected)")
 else:
-    st.sidebar.info("⚡ Mode: Local Intelligent Rule Engine (Offline)")
+    st.sidebar.info("⚡ Local Intelligent Rule Engine (Offline)")
 
 enable_blind_cv = st.sidebar.toggle("🛡️ Blind-CV Anonymization (Bias Shield)", value=True, help="Otomatis menyamarkan Nama, Foto, Gender, Usia, dan Almamater sebelum scoring.")
 min_score = st.sidebar.slider("Minimum Shortlist Score Threshold (%):", 0, 100, 60, 5)
