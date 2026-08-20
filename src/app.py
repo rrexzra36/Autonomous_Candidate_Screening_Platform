@@ -191,18 +191,34 @@ effective_model = st.session_state.get("connected_model", selected_model) if is_
 # ==========================================
 st.header("1️⃣ Pengaturan Posisi & Kriteria Lowongan (Job Description)")
 
+if "jd_uploader_key" not in st.session_state:
+    st.session_state["jd_uploader_key"] = 0
 if "drive_jd_file" not in st.session_state:
     st.session_state["drive_jd_file"] = None
 
-tab_jd_pdf, tab_jd_drive, tab_jd_text = st.tabs(["📄 Upload Dokumen PDF", "📁 Impor dari Google Drive", "✍️ Ketik / Tempel Teks Langsung"])
+tab_jd_pdf, tab_jd_drive, tab_jd_text = st.tabs([
+    "📤 Upload Berkas PDF Manual", 
+    "📁 Impor dari Google Drive", 
+    "✍️ Ketik / Tempel Teks Langsung"
+])
 
 active_job = None
 
 with tab_jd_pdf:
+    col_jd_title, col_jd_reset = st.columns([3, 1], vertical_alignment="center")
+    with col_jd_title:
+        st.markdown("**Unggah Dokumen PDF Lowongan Kerja (Job Description):**")
+    with col_jd_reset:
+        if st.button("🗑️ Reset PDF JD", use_container_width=True, help="Klik untuk mereset berkas PDF Job Description."):
+            st.session_state["jd_uploader_key"] += 1
+            st.session_state["drive_jd_file"] = None
+            st.rerun()
+
     uploaded_jd_pdf = st.file_uploader(
-        "Upload Dokumen PDF Job Description (berisi Job Title, Requirements, Responsibilities):",
+        "Upload Dokumen PDF Job Description:",
         type=["pdf"],
-        key="jd_pdf_uploader"
+        key=f"jd_pdf_uploader_{st.session_state['jd_uploader_key']}",
+        label_visibility="collapsed"
     )
     if uploaded_jd_pdf is not None:
         with st.spinner(f"🤖 AI ({provider_choice}) sedang membaca & memvalidasi PDF Job Description..."):
@@ -229,9 +245,9 @@ with tab_jd_pdf:
 
 with tab_jd_drive:
     st.markdown("**Impor Berkas Lowongan (Job Description) dari Google Drive:**")
-    st.caption("💡 Masukkan tautan **1 file PDF spesifik** atau **folder Google Drive publik** yang memuat dokumen Job Description.")
+    st.caption("💡 Mendukung tautan **1 file PDF spesifik** atau **folder Google Drive publik** yang memuat dokumen Job Description.")
     
-    col_jd_dr_in, col_jd_dr_btn = st.columns([3, 1])
+    col_jd_dr_in, col_jd_dr_btn = st.columns([3, 1], vertical_alignment="bottom")
     with col_jd_dr_in:
         drive_jd_url = st.text_input(
             "Tautan (URL) Job Description Google Drive:",
@@ -240,7 +256,6 @@ with tab_jd_drive:
             key="drive_jd_input"
         )
     with col_jd_dr_btn:
-        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
         if st.button("📥 Impor Lowongan", type="primary", use_container_width=True):
             if drive_jd_url and drive_jd_url.strip():
                 with st.spinner("⏳ Menghubungi Google Drive & mengunduh berkas Job Description..."):
@@ -257,11 +272,11 @@ with tab_jd_drive:
 
     if st.session_state.get("drive_jd_file"):
         jd_f = st.session_state["drive_jd_file"]
-        col_jdt, col_jdc = st.columns([3, 1])
+        col_jdt, col_jdc = st.columns([3, 1], vertical_alignment="center")
         with col_jdt:
             st.info(f"📄 **Berkas Terpilih dari Drive:** `{jd_f['name']}` ({round(jd_f['size']/1024, 1)} KB)")
         with col_jdc:
-            if st.button("🗑️ Reset Berkas Drive", key="btn_reset_jd_drive"):
+            if st.button("🗑️ Reset Berkas Drive", key="btn_reset_jd_drive", use_container_width=True):
                 st.session_state["drive_jd_file"] = None
                 st.rerun()
         
@@ -287,8 +302,9 @@ with tab_jd_drive:
                     active_job = None
 
 with tab_jd_text:
+    st.markdown("**Ketik atau Tempel Rincian Lowongan Kerja:**")
     jd_raw_text = st.text_area(
-        "Ketik atau tempel teks rincian lowongan kerja di sini:",
+        "Teks Rincian Lowongan Kerja:",
         height=220,
         placeholder=(
             "Contoh:\n"
@@ -297,7 +313,8 @@ with tab_jd_text:
             "Requirements: Minimum 2 years experience in design and build, AutoCAD, SketchUp, Revit, Technical Drawing...\n"
             "Responsibilities: To support project execution and design coordination..."
         ),
-        key="jd_text_area"
+        key="jd_text_area",
+        label_visibility="collapsed"
     )
     if jd_raw_text and len(jd_raw_text.strip()) >= 20:
         if active_job is None:
@@ -354,7 +371,7 @@ with st.container(border=True):
     with col_blind_title:
         st.markdown("#### 🛡️ Blind-CV Anonymization")
         enable_blind_cv = st.toggle(
-            "Aktifkan Blind-CV Anonymization Layer",
+            "Blind-CV Anonymization",
             value=True,
             help="Otomatis menyamarkan informasi pribadi sensitif (PII) sebelum dievaluasi AI guna memastikan penilaian 100% berbasis keahlian (merit-based)."
         )
@@ -385,7 +402,7 @@ if "eval_results_store" not in st.session_state:
 if "drive_cv_files" not in st.session_state:
     st.session_state["drive_cv_files"] = []
 
-tab_upload, tab_drive = st.tabs(["📤 Upload Berkas PDF Manual", "📁 Impor dari Google Drive Folder"])
+tab_upload, tab_drive = st.tabs(["📄 PDF Upload", "📁 Import Google Drive"])
 
 raw_cv_items = []
 
