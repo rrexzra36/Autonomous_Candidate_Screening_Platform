@@ -340,6 +340,11 @@ if active_job:
 st.markdown("---")
 
 # ==========================================
+# STEP 2: CV KANDIDAT (UPLOAD / INGESTION)
+# ==========================================
+st.header("2️⃣ Pengumpulan & Upload CV Kandidat")
+
+# ==========================================
 # PROTOKOL ANTI-BIAS & PRIVASI (BLIND-CV)
 # ==========================================
 active_masked_fields = []
@@ -360,23 +365,16 @@ with st.container(border=True):
         col_c1, col_c2, col_c3, col_c4 = st.columns(4)
         with col_c1:
             if st.checkbox("Nama Lengkap", value=True, key="chk_name"): active_masked_fields.append("full_name")
-            if st.checkbox("Alamat Email", value=True, key="chk_email"): active_masked_fields.append("email")
+            if st.checkbox("Email", value=True, key="chk_email"): active_masked_fields.append("email")
         with col_c2:
-            if st.checkbox("Gender / Kelamin", value=True, key="chk_gender"): active_masked_fields.append("gender")
-            if st.checkbox("Usia / Umur", value=True, key="chk_age"): active_masked_fields.append("age")
+            if st.checkbox("Gender", value=True, key="chk_gender"): active_masked_fields.append("gender")
+            if st.checkbox("Usia", value=True, key="chk_age"): active_masked_fields.append("age")
         with col_c3:
-            if st.checkbox("Alamat Domisili", value=True, key="chk_address"): active_masked_fields.append("address")
+            if st.checkbox("Domisili", value=True, key="chk_address"): active_masked_fields.append("address")
             if st.checkbox("Foto Profil", value=True, key="chk_photo"): active_masked_fields.append("photo_url")
         with col_c4:
-            if st.checkbox("Nama Kampus / Univ", value=True, key="chk_univ"): active_masked_fields.append("university")
+            if st.checkbox("Universitas", value=True, key="chk_univ"): active_masked_fields.append("university")
             if st.checkbox("Nomor Telepon", value=True, key="chk_phone"): active_masked_fields.append("phone")
-
-st.markdown("---")
-
-# ==========================================
-# STEP 2: CV KANDIDAT (UPLOAD / INGESTION)
-# ==========================================
-st.header("2️⃣ Pengumpulan & Upload CV Kandidat")
 
 if "cv_uploader_key" not in st.session_state:
     st.session_state["cv_uploader_key"] = 0
