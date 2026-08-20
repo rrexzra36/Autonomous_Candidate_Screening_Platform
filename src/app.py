@@ -210,6 +210,7 @@ with tab_jd_pdf:
         if st.button("🗑️ Reset PDF", use_container_width=True, help="Click to reset the uploaded Job Description PDF."):
             st.session_state["jd_uploader_key"] += 1
             st.session_state["drive_jd_file"] = None
+            st.session_state["executed_config_sig"] = ""
             st.rerun()
 
     uploaded_jd_pdf = st.file_uploader(
@@ -248,6 +249,7 @@ with tab_jd_drive:
     with col_jd_dr_reset:
         if st.button("🗑️ Reset Drive File", key="btn_reset_jd_drive", use_container_width=True, help="Click to reset the Job Description imported from Google Drive."):
             st.session_state["drive_jd_file"] = None
+            st.session_state["executed_config_sig"] = ""
             st.rerun()
 
     st.caption("💡 Supports a **specific single PDF file link** or a **public Google Drive folder** containing job vacancy documents.")
@@ -271,6 +273,7 @@ with tab_jd_drive:
                         st.session_state["drive_jd_file"] = None
                     else:
                         st.session_state["drive_jd_file"] = jd_files[0]
+                        st.session_state["executed_config_sig"] = ""
                         st.success(f"✅ Successfully imported [{jd_files[0]['name']}] from Google Drive.")
                         st.rerun()
             else:
@@ -306,6 +309,7 @@ with tab_jd_text:
     with col_jd_txt_reset:
         if st.button("🗑️ Clear Text", key="btn_reset_jd_text", use_container_width=True, help="Click to clear the job description text."):
             st.session_state["jd_text_area"] = ""
+            st.session_state["executed_config_sig"] = ""
             st.rerun()
 
     jd_raw_text = st.text_area(
@@ -404,6 +408,8 @@ if "eval_results_store" not in st.session_state:
     st.session_state["eval_results_store"] = {}
 if "drive_cv_files" not in st.session_state:
     st.session_state["drive_cv_files"] = []
+if "prev_uploaded_cv_names" not in st.session_state:
+    st.session_state["prev_uploaded_cv_names"] = []
 
 tab_upload, tab_drive = st.tabs(["📄 PDF Upload", "📁 Import Google Drive"])
 
@@ -418,8 +424,8 @@ with tab_upload:
             st.session_state["cv_uploader_key"] += 1
             st.session_state["parsed_cv_store"] = {}
             st.session_state["eval_results_store"] = {}
-            st.session_state["analysis_triggered"] = False
-            st.session_state["analyzed_dataset_sig"] = ""
+            st.session_state["executed_config_sig"] = ""
+            st.session_state["prev_uploaded_cv_names"] = []
             st.rerun()
 
     uploaded_cv_files = st.file_uploader(
@@ -430,8 +436,16 @@ with tab_upload:
         label_visibility="collapsed"
     )
     if uploaded_cv_files:
+        current_up_names = [f.name for f in uploaded_cv_files]
+        if current_up_names != st.session_state.get("prev_uploaded_cv_names"):
+            st.session_state["prev_uploaded_cv_names"] = current_up_names
+            st.session_state["executed_config_sig"] = ""
         for f in uploaded_cv_files:
             raw_cv_items.append({"name": f.name, "bytes": f.getvalue()})
+    else:
+        if st.session_state.get("prev_uploaded_cv_names"):
+            st.session_state["prev_uploaded_cv_names"] = []
+            st.session_state["executed_config_sig"] = ""
 
 with tab_drive:
     col_dr_title, col_dr_reset = st.columns([3, 1], vertical_alignment="center")
@@ -441,9 +455,10 @@ with tab_drive:
         if st.button("🗑️ Reset Drive Files", key="btn_reset_cv_drive", use_container_width=True, help="Click to clear and reset all files imported from Google Drive."):
             st.session_state["drive_cv_files"] = []
             st.session_state["eval_results_store"] = {}
-            st.session_state["analysis_triggered"] = False
-            st.session_state["analyzed_dataset_sig"] = ""
+            st.session_state["executed_config_sig"] = ""
             st.rerun()
+
+    st.caption("💡 Supports **Google Drive Folder** (multi-CV ingestion) or a **specific single PDF file link**. Ensure access is set to **'Anyone with the link can view'**.")
     
     col_dr_in, col_dr_btn = st.columns([3, 1], vertical_alignment="bottom")
     with col_dr_in:
@@ -463,6 +478,7 @@ with tab_drive:
                         st.error(err)
                     else:
                         st.session_state["drive_cv_files"] = files
+                        st.session_state["executed_config_sig"] = ""
                         st.success(f"✅ Successfully imported {len(files)} PDF documents from Google Drive.")
                         st.rerun()
             else:
