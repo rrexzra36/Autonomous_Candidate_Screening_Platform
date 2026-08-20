@@ -208,7 +208,8 @@ class DocumentParser:
             "creative", "visualization", "communication", "interpersonal", "presentation",
             "leadership", "management", "problem solv", "learner", "resilient", "teamwork",
             "negotiation", "adaptability", "critical thinking", "collaboration",
-            "analytical", "time management", "insightful", "visionary", "confident", "enthusiastic", "public speaking"
+            "analytical", "time management", "insightful", "visionary", "confident", "enthusiastic",
+            "public speaking", "attention to detail", "pressure", "discipline", "work ethic"
         ]
         technical = []
         soft = []
@@ -531,20 +532,43 @@ class DocumentParser:
                 "achievements": text[:250] + "..." if len(text) > 250 else text
             })
 
-        # 9. Skills Discovery
-        known_tools = [
+        # 9. Skills Discovery (Technical & Soft Skills)
+        known_tech_tools = [
             "AutoCAD", "SketchUp", "3ds Max", "Revit", "Adobe Photoshop", "Photoshop", "Illustrator",
-            "Lumion", "Rhino", "Blender", "V-Ray", "ArchiCAD", "Figma", "Canva", "InDesign",
+            "Lumion", "Rhino", "Blender", "V-Ray Render", "V-Ray", "ArchiCAD", "Figma", "Canva", "InDesign",
             "Python", "SQL", "Excel", "Microsoft Office", "SAP", "PLC", "SCADA", "Six Sigma", "ISO 9001",
             "Quality Control", "Lean Manufacturing", "Kaizen", "5S", "K3 Umum", "Technical Drawing",
-            "Project Management", "Interior Design", "Design & Build", "Communication Skills", "Problem Solving",
-            "Building Information Modeling", "BIM", "3D Visualization", "Architectural Modeling", "Enscape 3D", "Enscape"
+            "Architectural Detailing", "Interior Design", "Design & Build", "Building Information Modeling",
+            "BIM", "3D Visualization", "Architectural Modeling", "Enscape 3D", "Enscape", "Site Supervision",
+            "Construction Management"
         ]
-        found_skills = [s for s in known_tools if re.search(rf"\b{re.escape(s)}\b", text, re.I)]
-        if not found_skills:
-            found_skills = ["Technical Drawing", "Design Execution"]
+        known_soft_skills_list = [
+            "Teamwork", "Communication Skills", "Communication", "Critical Thinking", "Time Management",
+            "Problem Solving", "Leadership", "Public Speaking", "Attention to Detail", "Creative & Visualization Skills",
+            "Creativity", "Interpersonal Skills", "Adaptability", "Collaboration", "Analytical Thinking",
+            "Negotiation", "Resilience", "Work Under Pressure"
+        ]
+        
+        found_tech = []
+        for t in known_tech_tools:
+            if re.search(rf"\b{re.escape(t)}\b", text, re.I) and t not in found_tech:
+                found_tech.append(t)
 
-        tech_skills, soft_skills = DocumentParser.classify_skills(found_skills)
+        found_soft = []
+        for s in known_soft_skills_list:
+            if re.search(rf"\b{re.escape(s)}\b", text, re.I) and s not in found_soft:
+                found_soft.append(s)
+
+        if not found_tech and not found_soft:
+            found_tech = ["Technical Drawing", "Design Execution"]
+
+        all_skills_combined = list(dict.fromkeys(found_tech + found_soft))
+        tech_skills, soft_skills = DocumentParser.classify_skills(all_skills_combined)
+        
+        # Ensure any found soft skills are explicitly retained in soft_skills
+        for s in found_soft:
+            if s not in soft_skills:
+                soft_skills.append(s)
 
         # 10. Achievements & Certifications Extraction
         certifications = []
@@ -573,7 +597,7 @@ class DocumentParser:
             },
             "education": education_list,
             "work_experience": work_experiences,
-            "skills": found_skills,
+            "skills": all_skills_combined,
             "technical_skills": tech_skills,
             "soft_skills": soft_skills,
             "certifications": certifications
