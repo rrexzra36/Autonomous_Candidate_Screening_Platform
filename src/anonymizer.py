@@ -64,9 +64,6 @@ class BlindCVAnonymizer:
         if "address" in enabled_fields:
             masked_info["address"] = "Regional (Masked)"
             
-        if "university" in enabled_fields:
-            masked_info["university"] = "Accredited Higher Education Institution (Masked)"
-
         anonymized["personal_info"] = masked_info
         
         # 2. Mask Education Institution Names

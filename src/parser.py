@@ -478,6 +478,17 @@ class DocumentParser:
                 "period": "2018 - 2022"
             })
 
+        # Clean & deduplicate education items
+        unique_edu = []
+        seen_keys = set()
+        for e in education_list:
+            norm_name = re.sub(r"\bstate\b", "", e["institution"], flags=re.I).strip().lower()
+            norm_name = re.sub(r"\s+", " ", norm_name)
+            if norm_name not in seen_keys:
+                seen_keys.add(norm_name)
+                unique_edu.append(e)
+        education_list = unique_edu
+
         # Combined university label for personal_info summary
         primary_univ = " & ".join([e["institution"] for e in education_list]) if education_list else "Tidak Dicantumkan"
 
@@ -558,8 +569,7 @@ class DocumentParser:
                 "gender": gender,
                 "age": age,
                 "photo_url": "",
-                "address": address,
-                "university": primary_univ
+                "address": address
             },
             "education": education_list,
             "work_experience": work_experiences,
@@ -613,8 +623,7 @@ Struktur JSON yang WAJIB dihasilkan:
     "gender": "Laki-laki / Perempuan / Tidak Dicantumkan",
     "age": 23,
     "photo_url": "",
-    "address": "Kota / Alamat Domisili Asli dari CV (misal: South Jakarta - Indonesia / Bandung)",
-    "university": "Daftar Lengkap Nama Universitas & Sekolah (misal: Borobudur University & State Vocational High School 3 Kuningan)"
+    "address": "Kota / Alamat Domisili Asli dari CV (misal: South Jakarta - Indonesia / Bandung)"
   }},
   "education": [
     {{
