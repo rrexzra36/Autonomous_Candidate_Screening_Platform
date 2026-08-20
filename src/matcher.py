@@ -32,9 +32,15 @@ class CandidateMatcherEngine:
         else:
             self.api_key = api_key or gemini_api_key or kwargs.get("gemini_api_key", "")
 
-    def evaluate_candidate(self, anonymized_cv: Dict[str, Any], job_desc: Dict[str, Any]) -> Dict[str, Any]:
+    def evaluate_candidate(
+        self,
+        anonymized_cv: Dict[str, Any],
+        job_desc: Dict[str, Any],
+        weights: Dict[str, float] = None
+    ) -> Dict[str, Any]:
         """
-        Runs 3-Tier evaluation flow on an anonymized candidate CV against job description.
+        Runs 3-Tier evaluation flow on an anonymized candidate CV against job description
+        with customizable scoring weights.
         """
         cv_id = anonymized_cv.get("cv_id", "UNKNOWN")
         candidate_alias = anonymized_cv.get("personal_info", {}).get("candidate_alias", "CANDIDATE-X")
@@ -74,7 +80,15 @@ class CandidateMatcherEngine:
         exp_score = min((total_exp / max(min_exp, 1)) * 100, 100) if min_exp > 0 else 100
         education_score = 90.0
         
-        overall_score = round((skill_score * 0.5) + (exp_score * 0.3) + (education_score * 0.2), 1)
+        # Apply Scoring Weights
+        if weights:
+            w_skill = weights.get("skill", 50.0) / 100.0
+            w_exp = weights.get("experience", 30.0) / 100.0
+            w_edu = weights.get("education", 20.0) / 100.0
+        else:
+            w_skill, w_exp, w_edu = 0.5, 0.3, 0.2
+
+        overall_score = round((skill_score * w_skill) + (exp_score * w_exp) + (education_score * w_edu), 1)
         if not hard_filter_passed:
             overall_score = round(overall_score * 0.5, 1)
 

@@ -442,8 +442,6 @@ with tab_drive:
             st.session_state["drive_cv_files"] = []
             st.session_state["eval_results_store"] = {}
             st.rerun()
-
-    st.caption("💡 Supports **Google Drive Folder** (multi-CV ingestion) or a **specific single PDF file link**. Ensure access is set to **'Anyone with the link can view'**.")
     
     col_dr_in, col_dr_btn = st.columns([3, 1], vertical_alignment="bottom")
     with col_dr_in:
@@ -530,11 +528,57 @@ elif not candidates_to_process:
     st.info("📤 Please upload or import **Candidate CVs** in **Step 2** first.")
 else:
     with st.container(border=True):
-        col_st_info, col_st_btn = st.columns([3, 1], vertical_alignment="center")
-        with col_st_info:
-            st.markdown(f"Ready to evaluate **{len(candidates_to_process)} candidate CVs** for **{active_job['title']}**.")
+        st.markdown(f"Ready to evaluate **{len(candidates_to_process)} candidate CVs** for **{active_job['title']}**.")
+        
+        st.markdown("##### ⚙️ Scoring Weights Configuration")
+        col_w1, col_w2, col_w3 = st.columns(3)
+        with col_w1:
+            w_skill = st.number_input(
+                "🎯 Skill Match (%)",
+                min_value=0,
+                max_value=100,
+                value=50,
+                step=5,
+                key="weight_skill",
+                help="Weight percentage for candidate skill match against job requirements."
+            )
+        with col_w2:
+            w_exp = st.number_input(
+                "💼 Experience Depth (%)",
+                min_value=0,
+                max_value=100,
+                value=30,
+                step=5,
+                key="weight_exp",
+                help="Weight percentage for total work experience duration and depth."
+            )
+        with col_w3:
+            w_edu = st.number_input(
+                "🎓 Education Background (%)",
+                min_value=0,
+                max_value=100,
+                value=20,
+                step=5,
+                key="weight_edu",
+                help="Weight percentage for formal academic degree and credentials."
+            )
+
+        total_weight = w_skill + w_exp + w_edu
+        custom_weights = {
+            "skill": float(w_skill),
+            "experience": float(w_exp),
+            "education": float(w_edu)
+        }
+
+        col_st_status, col_st_btn = st.columns([3, 1], vertical_alignment="center")
+        with col_st_status:
+            if total_weight == 100:
+                st.caption(f"✅ Total Weight: **{total_weight}%** (Valid Configuration)")
+            else:
+                st.error(f"⚠️ Total Weight: **{total_weight}%** (Must equal 100% to proceed)")
         with col_st_btn:
-            if st.button("🚀 Start AI Analysis", type="primary", use_container_width=True):
+            is_disabled = (total_weight != 100)
+            if st.button("🚀 Start AI Analysis", type="primary", use_container_width=True, disabled=is_disabled):
                 st.session_state["analysis_triggered"] = True
                 st.rerun()
 
@@ -553,12 +597,12 @@ else:
             cv_to_process = BlindCVAnonymizer.anonymize_cv(raw_cv, enabled_fields=active_masked_fields) if enable_blind_cv else raw_cv
             
             # Cache Key for scoring evaluation to prevent redundant API hits on UI clicks
-            eval_cache_key = f"{raw_cv.get('cv_id')}_{active_job.get('job_id')}_{enable_blind_cv}_{'_'.join(sorted(active_masked_fields))}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+            eval_cache_key = f"{raw_cv.get('cv_id')}_{active_job.get('job_id')}_{enable_blind_cv}_{'_'.join(sorted(active_masked_fields))}_{w_skill}_{w_exp}_{w_edu}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
             
             if eval_cache_key in st.session_state["eval_results_store"]:
                 eval_res = st.session_state["eval_results_store"][eval_cache_key]
             else:
-                eval_res = matcher.evaluate_candidate(cv_to_process, active_job)
+                eval_res = matcher.evaluate_candidate(cv_to_process, active_job, weights=custom_weights)
                 eval_res["raw_cv"] = raw_cv
                 eval_res["anonymized_cv"] = cv_to_process
                 st.session_state["eval_results_store"][eval_cache_key] = eval_res
