@@ -149,7 +149,7 @@ if active_api_key:
                         st.session_state["api_connected"] = True
                         st.session_state["connected_model"] = success_model
                         st.session_state["connected_provider"] = provider_choice
-                        st.sidebar.success(f"✅ Successfully connected to **{success_model}**")
+                        st.sidebar.success(f"Successfully connected to **{success_model}**")
                         st.rerun()
                     else:
                         st.sidebar.error("❌ Model did not respond.")
@@ -166,7 +166,7 @@ if active_api_key:
                         st.sidebar.error(f"❌ **Error Details:** {err_str}")
 
     else:
-        st.sidebar.success(f"🟢 **Connected to {st.session_state.get('connected_model')}**")
+        st.sidebar.success(f"**Connected to {st.session_state.get('connected_model')}**")
         if st.sidebar.button("🔌 Disconnect", use_container_width=True):
             st.session_state["api_connected"] = False
             st.session_state["connected_model"] = ""
@@ -175,7 +175,7 @@ if active_api_key:
 
 else:
     st.session_state["api_connected"] = False
-    st.sidebar.info("⚡ Mode: Local Intelligent Rule Engine (Offline)")
+    st.sidebar.info("Local Intelligent Rule Engine (Offline)")
 
 st.sidebar.markdown("---")
 
@@ -197,9 +197,9 @@ if "drive_jd_file" not in st.session_state:
     st.session_state["drive_jd_file"] = None
 
 tab_jd_pdf, tab_jd_drive, tab_jd_text = st.tabs([
-    "📤 Manual PDF Upload", 
-    "📁 Import from Google Drive", 
-    "✍️ Type / Paste Text Directly"
+    "📤 PDF Upload", 
+    "📁 Import Google Drive", 
+    "✍️ Type Text"
 ])
 
 active_job = None
@@ -526,14 +526,10 @@ elif not candidates_to_process:
     st.info("📤 Please upload or import **Candidate CVs** in **Step 2** first.")
 else:
     with st.container(border=True):
-        col_st_info, col_st_btn = st.columns([3, 1])
+        col_st_info, col_st_btn = st.columns([3, 1], vertical_alignment="center")
         with col_st_info:
             st.markdown(f"Ready to evaluate **{len(candidates_to_process)} candidate CVs** for **{active_job['title']}**.")
-            status_text = "🛡️ Blind-CV Protocol Active" if enable_blind_cv else "⚪ Standard Scoring Mode"
-            model_info = f"🤖 Engine: {provider_choice} ({effective_model})" if effective_api_key else "⚡ Engine: Local Intelligent Rule Engine (Offline)"
-            st.caption(f"{status_text} | {model_info}")
         with col_st_btn:
-            st.write("")
             if st.button("🚀 Start AI Analysis", type="primary", use_container_width=True):
                 st.session_state["analysis_triggered"] = True
                 st.rerun()
