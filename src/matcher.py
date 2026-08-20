@@ -36,6 +36,24 @@ def compute_fallback_sparse_vector(text: str, vocabulary: Dict[str, int]) -> Lis
     norm = math.sqrt(sum(x * x for x in vec))
     return [x / norm for x in vec] if norm > 0 else [0.0] * len(vocabulary)
 
+def extract_domain_keywords(title: str, major: str, tech_skills: List[str]) -> set:
+    """Extracts distinctive domain keywords for role matching."""
+    text = f"{title} {major} {' '.join(tech_skills)}".lower()
+    stopwords = {
+        "and", "or", "the", "in", "of", "for", "with", "a", "an", "to", "at", "by", "on", "is",
+        "junior", "senior", "lead", "staff", "intern", "officer", "specialist", "manager", "associate"
+    }
+    tokens = set(re.findall(r'\b[a-zA-Z]{3,}\b', text))
+    return {t for t in tokens if t not in stopwords}
+
+def calculate_text_domain_overlap(text: str, domain_keywords: set) -> float:
+    """Calculates domain overlap ratio [0.0 - 1.0]."""
+    if not domain_keywords or not text:
+        return 0.0
+    text_tokens = set(re.findall(r'\b[a-zA-Z]{3,}\b', text.lower()))
+    intersection = text_tokens.intersection(domain_keywords)
+    return len(intersection) / max(len(domain_keywords), 1)
+
 class CandidateMatcherEngine:
     def __init__(
         self,
@@ -142,44 +160,126 @@ class CandidateMatcherEngine:
                 hard_filter_passed = False
                 knockout_reasons.append(f"Missing mandatory certification: '{cert}'.")
 
-        # --- TIER 2: Skill & Semantic Vector Embedding Matching ---
-        jd_skills = list(dict.fromkeys([s.lower() for s in (job_desc.get("technical_skills", []) + job_desc.get("soft_skills", []) + job_desc.get("key_skills", []))]))
-        cand_skills = list(dict.fromkeys([s.lower() for s in (anonymized_cv.get("technical_skills", []) + anonymized_cv.get("soft_skills", []) + anonymized_cv.get("skills", []))]))
-        
-        # 1. Lexical Substring & Exact Match
-        matched_skills = []
-        for s in jd_skills:
-            if any(s in cs or cs in s for cs in cand_skills):
-                matched_skills.append(s.title())
-                
-        lexical_skill_score = (len(matched_skills) / max(len(jd_skills), 1)) * 100
+        # --- TIER 2: Skill & Semantic Vector Embedding Matching with Domain Role Verification ---
+        try:
+            from parser import DocumentParser
+        except ImportError:
+            from src.parser import DocumentParser
+
+        jd_tech_skills = job_desc.get("technical_skills", [])
+        jd_soft_skills = job_desc.get("soft_skills", [])
+        if not jd_tech_skills and not jd_soft_skills:
+            jd_tech_skills, jd_soft_skills = DocumentParser.classify_skills(job_desc.get("key_skills", []))
+
+        cand_tech_skills = anonymized_cv.get("technical_skills", [])
+        cand_soft_skills = anonymized_cv.get("soft_skills", [])
+        if not cand_tech_skills and not cand_soft_skills:
+            cand_tech_skills, cand_soft_skills = DocumentParser.classify_skills(anonymized_cv.get("skills", []))
+
+        domain_keywords = extract_domain_keywords(
+            job_desc.get("title", ""),
+            job_desc.get("major", ""),
+            jd_tech_skills
+        )
+
+        # 1. Technical & Soft Skills Matching
+        matched_tech = []
+        for s in jd_tech_skills:
+            if any(s.lower() in cs.lower() or cs.lower() in s.lower() for cs in cand_tech_skills):
+                matched_tech.append(s.title())
+
+        matched_soft = []
+        for s in jd_soft_skills:
+            if any(s.lower() in cs.lower() or cs.lower() in s.lower() for cs in cand_soft_skills):
+                matched_soft.append(s.title())
+
+        matched_skills = matched_tech + matched_soft
+        tech_ratio = len(matched_tech) / max(len(jd_tech_skills), 1)
+        soft_ratio = len(matched_soft) / max(len(jd_soft_skills), 1) if jd_soft_skills else 1.0
 
         # 2. Dense Semantic Vector Similarity Analysis
-        jd_profile_text = f"{job_desc.get('title', '')}. Key Requirements: {', '.join(jd_skills)}. Responsibilities: {job_desc.get('responsibilities', '')} {job_desc.get('description', '')}"
-        cv_profile_text = f"Skills: {', '.join(cand_skills)}. " + " ".join([f"{e.get('role', '')} at {e.get('company', '')}: {e.get('description', '')}" for e in anonymized_cv.get("work_experience", [])])
-        
+        jd_profile_text = f"{job_desc.get('title', '')}. Key Requirements: {', '.join(jd_tech_skills + jd_soft_skills)}. Responsibilities: {job_desc.get('responsibilities', '')} {job_desc.get('description', '')}"
+        cv_profile_text = f"Technical Skills: {', '.join(cand_tech_skills)}. Soft Skills: {', '.join(cand_soft_skills)}. " + " ".join([f"{e.get('role', '')} at {e.get('company', '')}: {e.get('description', '')}" for e in anonymized_cv.get("work_experience", [])])
+
         jd_vec = self._compute_embedding(jd_profile_text)
         cv_vec = self._compute_embedding(cv_profile_text)
 
         if jd_vec and cv_vec:
-            # Dense Vector Cosine Similarity
             semantic_similarity = calculate_cosine_similarity(jd_vec, cv_vec) * 100.0
-            # Scale semantic similarity curve gracefully (typical semantic range is ~0.4 - 0.9)
             semantic_score = min(100.0, max(0.0, (semantic_similarity - 35.0) / 0.55))
         else:
-            # Sparse Term Frequency Cosine Similarity (Offline Fallback)
             vocab = {word: idx for idx, word in enumerate(set(re.findall(r'\b[a-zA-Z0-9_+#.-]{2,}\b', (jd_profile_text + " " + cv_profile_text).lower())))}
             v_jd = compute_fallback_sparse_vector(jd_profile_text, vocab)
             v_cv = compute_fallback_sparse_vector(cv_profile_text, vocab)
             sparse_sim = calculate_cosine_similarity(v_jd, v_cv) * 100.0
             semantic_score = min(100.0, max(0.0, sparse_sim * 1.5))
 
-        # Composite Skill & Semantic Score: 50% Direct Skills + 50% Contextual Vector Alignment
-        skill_score = round(0.5 * lexical_skill_score + 0.5 * semantic_score, 1)
-        exp_score = min((total_exp / max(min_exp, 1)) * 100, 100) if min_exp > 0 else 100
-        education_score = 90.0
-        
-        # Apply Scoring Weights
+        # 3. Composite Skill Score (Technical Skills carry primary 75-80% weight)
+        if len(jd_tech_skills) > 0:
+            if len(matched_tech) == 0:
+                # ZERO core technical skills matched! Soft skills alone cannot qualify for a technical role
+                skill_score = round(min(15.0, (soft_ratio * 10.0) + (semantic_score * 0.05)), 1)
+            else:
+                skill_score = round((tech_ratio * 75.0) + (soft_ratio * 15.0) + (min(100.0, semantic_score) * 0.10), 1)
+        else:
+            skill_score = round((soft_ratio * 60.0) + (min(100.0, semantic_score) * 0.40), 1)
+
+        # 4. Work Experience Domain Relevance (Not Just Raw Duration)
+        relevant_exp_years = 0.0
+        for exp in anonymized_cv.get("work_experience", []):
+            role_text = f"{exp.get('role', '')} {exp.get('description', '')}"
+            overlap = calculate_text_domain_overlap(role_text, domain_keywords)
+            has_tech = any(s.lower() in role_text.lower() for s in jd_tech_skills)
+            
+            if overlap >= 0.12 or has_tech:
+                relevance = 1.0
+            elif overlap > 0.04:
+                relevance = 0.5
+            else:
+                relevance = 0.0
+                
+            relevant_exp_years += exp.get("duration_years", 0) * relevance
+
+        if min_exp > 0:
+            if relevant_exp_years > 0:
+                exp_score = min((relevant_exp_years / min_exp) * 100.0, 100.0)
+            else:
+                # 0 relevant experience: nominal transferable points only
+                exp_score = min(10.0, (total_exp / min_exp) * 10.0)
+        else:
+            exp_score = 100.0 if relevant_exp_years > 0 else 30.0
+
+        # 5. Education Level & Major / Discipline Relevance
+        edu_list = anonymized_cv.get("education", [])
+        cand_degree_text = " ".join([e.get("degree", "") for e in edu_list if isinstance(e, dict)]).lower()
+        cand_major_text = " ".join([e.get("major", "") for e in edu_list if isinstance(e, dict)]).lower()
+
+        # Degree Level Assessment
+        req_deg = hard_reqs.get("min_education", "Bachelor Degree").lower()
+        if "master" in req_deg or "s2" in req_deg:
+            deg_level_score = 100.0 if any(d in cand_degree_text for d in ["master", "s2", "phd", "magister"]) else 50.0
+        elif "bachelor" in req_deg or "s1" in req_deg or "sarjana" in req_deg:
+            deg_level_score = 90.0 if any(d in cand_degree_text for d in ["bachelor", "s1", "sarjana", "master", "s2", "phd"]) else 45.0
+        else:
+            deg_level_score = 80.0
+
+        # Major Relevance Assessment
+        major_overlap = calculate_text_domain_overlap(cand_major_text, domain_keywords)
+        jd_major_keywords = set(re.findall(r'\b[a-zA-Z]{3,}\b', job_desc.get("major", "").lower()))
+        direct_major_match = bool(set(re.findall(r'\b[a-zA-Z]{3,}\b', cand_major_text)).intersection(jd_major_keywords))
+
+        if direct_major_match or major_overlap >= 0.20:
+            major_score = 95.0
+        elif major_overlap > 0.05 or ("engineering" in cand_major_text and "engineering" in job_desc.get("major", "").lower()):
+            major_score = 65.0
+        elif any(w in cand_major_text for w in ["building", "bim", "design", "architecture", "interior"]):
+            major_score = 55.0
+        else:
+            major_score = 20.0  # Unrelated major
+
+        education_score = round((deg_level_score * 0.4) + (major_score * 0.6), 1)
+
+        # 6. Apply Scoring Weights
         if weights:
             w_skill = weights.get("skill", 50.0) / 100.0
             w_exp = weights.get("experience", 30.0) / 100.0
@@ -187,15 +287,29 @@ class CandidateMatcherEngine:
         else:
             w_skill, w_exp, w_edu = 0.5, 0.3, 0.2
 
-        overall_score = round((skill_score * w_skill) + (exp_score * w_exp) + (education_score * w_edu), 1)
+        raw_overall = (skill_score * w_skill) + (exp_score * w_exp) + (education_score * w_edu)
+
+        # Critical Domain Mismatch Filter
+        is_domain_mismatch = (len(matched_tech) == 0 and relevant_exp_years == 0)
+        if is_domain_mismatch and major_score <= 50.0:
+            overall_score = round(min(22.0, raw_overall), 1)
+        elif is_domain_mismatch:
+            overall_score = round(min(28.0, raw_overall), 1)
+        else:
+            overall_score = round(raw_overall, 1)
+
         if not hard_filter_passed:
             overall_score = round(overall_score * 0.5, 1)
 
-        # --- TIER 3: LLM / XAI Reasoning ---
-        status = "Pass" if (overall_score >= threshold and hard_filter_passed) else ("Considered" if overall_score >= max(threshold - 15, 35) else "Rejected")
+        # 7. Final Recommendation Status
+        status = "Pass" if (overall_score >= threshold and hard_filter_passed) else ("Considered" if overall_score >= max(threshold - 15, 45) else "Rejected")
+
+        missing_tech = [s.title() for s in jd_tech_skills if s.title() not in matched_tech]
+        missing_soft = [s.title() for s in jd_soft_skills if s.title() not in matched_soft]
 
         pros, cons, rec_reason, eval_source = self._generate_reasoning(
-            anonymized_cv, job_desc, matched_skills, jd_skills, total_exp, min_exp, knockout_reasons, overall_score, threshold, hard_filter_passed, status
+            anonymized_cv, job_desc, matched_skills, jd_tech_skills + jd_soft_skills, total_exp, min_exp, knockout_reasons,
+            overall_score, threshold, hard_filter_passed, status, is_domain_mismatch, relevant_exp_years, missing_tech, missing_soft
         )
 
         return {
@@ -221,10 +335,30 @@ class CandidateMatcherEngine:
             }
         }
 
-    def _generate_reasoning(self, cv, job, matched_skills, jd_skills, total_exp, min_exp, knockout_reasons, overall_score=0, threshold=60, hard_filter_passed=True, status="Considered"):
+    def _generate_reasoning(
+        self,
+        cv,
+        job,
+        matched_skills,
+        jd_skills,
+        total_exp,
+        min_exp,
+        knockout_reasons,
+        overall_score=0,
+        threshold=60,
+        hard_filter_passed=True,
+        status="Considered",
+        is_domain_mismatch=False,
+        relevant_exp_years=0.0,
+        missing_tech=None,
+        missing_soft=None
+    ):
         """
         Uses Google Gemini or OpenAI LLM if API Key is available, otherwise uses deterministic logic.
         """
+        missing_tech = missing_tech or []
+        missing_soft = missing_soft or []
+
         if self.api_key and self.api_key.strip():
             prompt = f"""
 You are a Senior Technical Recruiter and AI Talent Acquisition Specialist.
@@ -246,28 +380,27 @@ Responsibilities & Description:
 Match Score: {overall_score}%
 Passing Threshold: {threshold}%
 Decision Status: {status}
+Domain Relevance Status: {"CRITICAL DOMAIN MISMATCH (0 Relevant Tech Skills, 0 Years Relevant Experience)" if is_domain_mismatch else "Domain Relevant"}
 
 === EVALUATION INSTRUCTIONS (EXPLAINABLE AI) ===
 1. PROS (Candidate Strengths & Value-Add Potential):
-   - Analyze candidate's real project/work track record relevance to position requirements.
-   - Analyze technical software proficiency & core competencies ready to be deployed.
-   - Highlight interpersonal strengths, work ethic, and achievements.
+   - If Domain Mismatch is active: Do NOT describe unrelated tools (e.g. Python/SQL for Architecture role) as relevant job strengths. Instead describe general transferable soft skills or formal education level.
+   - If candidate is aligned: Analyze candidate's real project/work track record relevance and technical software proficiency ready to deploy.
 2. CONS (Gaps & Areas for Consideration):
-   - Highlight essential technical software/tools or certifications required by the job but missing from the CV.
-   - Highlight experience gaps, depth variance, or onboarding adaptation needed.
+   - If Domain Mismatch is active: Explicitly identify the major career domain and technical skill gap as the primary reason for non-qualification.
+   - Highlight missing required software/tools: {', '.join(missing_tech) if missing_tech else 'None'}.
 3. RECOMMENDATION REASON:
-   - Provide a direct, professional 1-2 sentence executive explanation of WHY this candidate is {status} based on their {overall_score}% score against the {threshold}% threshold, core skill alignment, and experience match.
+   - Provide a direct, professional 1-2 sentence executive explanation of WHY this candidate is {status} based on {overall_score}% match score against the {threshold}% threshold, core skill alignment, and domain experience match.
 
 === OUTPUT FORMAT (MANDATORY PURE JSON WITHOUT EMOJIS) ===
 {{
   "pros": [
-    "Key strength point analyzing candidate's portfolio & concrete track record...",
-    "Key strength point analyzing core software & relevant technical tools...",
-    "Key strength point analyzing soft skills and proven achievements..."
+    "Key strength point analyzing candidate's actual relevant capabilities or transferable work ethic...",
+    "Key strength point analyzing supporting soft skills or credentials..."
   ],
   "cons": [
-    "Area of consideration regarding specific software/tools not explicitly listed...",
-    "Area of consideration regarding qualification depth or experience gap..."
+    "Critical gap analyzing missing required technical tools ({', '.join(missing_tech[:3]) if missing_tech else 'None'})...",
+    "Area of consideration regarding domain experience variance or qualification depth..."
   ],
   "recommendation_reason": "Executive rationale explaining why the candidate was {status}..."
 }}
@@ -319,7 +452,6 @@ Decision Status: {status}
                         if text:
                             break
                     except Exception as e:
-                        # Fallback to legacy SDK if google.genai has model naming variance
                         try:
                             import google.generativeai as legacy_genai
                             legacy_genai.configure(api_key=self.api_key.strip())
@@ -355,68 +487,64 @@ Decision Status: {status}
                 except Exception as e:
                     print(f"[Matcher AI Reasoning JSON Parse Error]: {e}")
 
-        # Fallback Deterministic Heuristic Engine with Full Candidate Profile
-        try:
-            from parser import DocumentParser
-        except ImportError:
-            from src.parser import DocumentParser
-
-        # 1. Extract Technical & Soft skills from this specific candidate's CV
+        # Fallback Deterministic Heuristic Engine with Rigorous Domain Alignment
         cand_tech = cv.get("technical_skills", [])
         cand_soft = cv.get("soft_skills", [])
-        if not cand_tech and not cand_soft:
-            cand_all_skills = cv.get("skills", [])
-            cand_tech, cand_soft = DocumentParser.classify_skills(cand_all_skills)
-
-        # 2. Extract Matched and Missing Skills
-        matched_tech, matched_soft = DocumentParser.classify_skills(matched_skills)
-        missing_skills = [s.title() for s in jd_skills if s.title() not in matched_skills]
-        missing_tech, missing_soft = DocumentParser.classify_skills(missing_skills)
+        edu_list = cv.get("education", [])
+        cand_major = " ".join([e.get("major", "") for e in edu_list if isinstance(e, dict)])
 
         pros = []
         cons = []
-        
-        # Format Pros based on THIS candidate's actual CV
-        if cand_tech:
-            pros.append(f"Proficient in technical tools and software: {', '.join(cand_tech)}.")
-        elif matched_tech:
-            pros.append(f"Proficient in relevant technical capabilities: {', '.join(matched_tech)}.")
 
-        if cand_soft:
-            pros.append(f"Demonstrates interpersonal competencies and work ethic: {', '.join(cand_soft)}.")
-        elif matched_soft:
-            pros.append(f"Possesses supporting soft skills: {', '.join(matched_soft)}.")
+        if is_domain_mismatch:
+            if cand_soft:
+                pros.append(f"Demonstrates transferable interpersonal competencies: {', '.join(cand_soft)}.")
+            if total_exp > 0:
+                pros.append(f"Possesses {total_exp} years of general work tenure in an adjacent or different professional domain.")
+            if cand_major:
+                pros.append(f"Educational foundation in: {cand_major.title()}.")
 
-        # Duration & Education
-        if total_exp > 0:
-            if total_exp >= min_exp:
-                pros.append(f"Fulfills work experience requirement with {total_exp} years of relevant experience (target: >= {min_exp} years).")
-            else:
-                pros.append(f"Possesses {total_exp} years of accumulated industry work experience.")
+            cons.append(f"Critical Domain Mismatch: Candidate background is outside the target domain and lacks core technical tools: {', '.join(missing_tech) if missing_tech else 'Required Technical Skills'}.")
+            if total_exp > 0 and relevant_exp_years == 0:
+                cons.append(f"Work experience ({total_exp} years) is in an unrelated field, resulting in 0 years of relevant experience for {job.get('title', 'this role')}.")
+            if missing_soft:
+                cons.append(f"Soft skills may require further verification during interview: {', '.join(missing_soft)}.")
 
-        edu_list = cv.get("education", [])
-        if isinstance(edu_list, list) and edu_list:
-            deg_names = [e.get("degree") for e in edu_list if e.get("degree")]
-            if deg_names:
-                pros.append(f"Supported by formal education credentials: {', '.join(deg_names)}.")
-        elif isinstance(edu_list, dict) and edu_list.get("degree"):
-            pros.append(f"Supported by formal education background: {edu_list.get('degree')}.")
-
-        # Format Cons (Gaps against Job Vacancy)
-        if knockout_reasons:
-            cons.extend(knockout_reasons)
-            
-        if missing_tech:
-            cons.append(f"Has not explicitly listed specific software tools required by the job: {', '.join(missing_tech)}.")
-        if missing_soft:
-            cons.append(f"Soft skills may require further verification during interview: {', '.join(missing_soft)}.")
-
-        if status == "Pass":
-            rec_reason = f"Candidate successfully passed evaluation with a match score of {overall_score}%, exceeding the {threshold}% threshold. Profile shows strong technical alignment and meets required experience expectations."
-        elif status == "Considered":
-            rec_reason = f"Candidate is under consideration with a match score of {overall_score}%. Demonstrates foundational competencies but shows minor skill or experience depth gaps relative to the {threshold}% threshold."
+            rec_reason = f"Candidate is rejected with a match score of {overall_score}%, falling far below the {threshold}% threshold due to critical domain and technical skillset mismatch with the {job.get('title', 'target')} role."
         else:
-            reasons_suffix = f" due to mandatory knockout criteria: {'; '.join(knockout_reasons)}" if knockout_reasons else f" falling below the minimum {threshold}% threshold"
-            rec_reason = f"Candidate is rejected with an overall score of {overall_score}%,{reasons_suffix}."
+            if cand_tech:
+                matched_cand_tech = [t for t in cand_tech if t.title() in matched_skills]
+                if matched_cand_tech:
+                    pros.append(f"Proficient in relevant technical capabilities: {', '.join(matched_cand_tech)}.")
+                else:
+                    pros.append(f"Demonstrates technical software proficiency: {', '.join(cand_tech)}.")
+
+            if cand_soft:
+                pros.append(f"Demonstrates interpersonal competencies and work ethic: {', '.join(cand_soft)}.")
+
+            if relevant_exp_years >= min_exp and min_exp > 0:
+                pros.append(f"Fulfills work experience requirement with {relevant_exp_years} years of relevant domain experience (target: >= {min_exp} years).")
+            elif total_exp > 0:
+                pros.append(f"Possesses {total_exp} years of accumulated work experience.")
+
+            if edu_list:
+                deg_names = [e.get("degree") for e in edu_list if isinstance(e, dict) and e.get("degree")]
+                if deg_names:
+                    pros.append(f"Supported by formal education credentials: {', '.join(deg_names)}.")
+
+            if knockout_reasons:
+                cons.extend(knockout_reasons)
+            if missing_tech:
+                cons.append(f"Has not explicitly listed specific software tools required by the job: {', '.join(missing_tech)}.")
+            if missing_soft:
+                cons.append(f"Soft skills may require further verification during interview: {', '.join(missing_soft)}.")
+
+            if status == "Pass":
+                rec_reason = f"Candidate successfully passed evaluation with a match score of {overall_score}%, exceeding the {threshold}% threshold. Profile shows strong technical alignment and meets required experience expectations."
+            elif status == "Considered":
+                rec_reason = f"Candidate is under consideration with a match score of {overall_score}%. Demonstrates foundational competencies but shows minor skill or experience depth gaps relative to the {threshold}% threshold."
+            else:
+                reasons_suffix = f" due to mandatory knockout criteria: {'; '.join(knockout_reasons)}" if knockout_reasons else f" falling below the minimum {threshold}% threshold"
+                rec_reason = f"Candidate is rejected with an overall score of {overall_score}%,{reasons_suffix}."
 
         return pros, cons, rec_reason, "Local Intelligent Rule Engine (Offline)"
