@@ -94,11 +94,11 @@ class CandidateMatcherEngine:
             overall_score = round(overall_score * 0.5, 1)
 
         # --- TIER 3: LLM / XAI Reasoning ---
-        pros, cons, eval_source = self._generate_reasoning(
-            anonymized_cv, job_desc, matched_skills, jd_skills, total_exp, min_exp, knockout_reasons
-        )
-
         status = "Pass" if (overall_score >= threshold and hard_filter_passed) else ("Considered" if overall_score >= max(threshold - 15, 35) else "Rejected")
+
+        pros, cons, rec_reason, eval_source = self._generate_reasoning(
+            anonymized_cv, job_desc, matched_skills, jd_skills, total_exp, min_exp, knockout_reasons, overall_score, threshold, hard_filter_passed, status
+        )
 
         return {
             "cv_id": cv_id,
@@ -117,11 +117,12 @@ class CandidateMatcherEngine:
             "matched_skills": matched_skills,
             "justification": {
                 "pros": pros,
-                "cons": cons
+                "cons": cons,
+                "recommendation_reason": rec_reason
             }
         }
 
-    def _generate_reasoning(self, cv, job, matched_skills, jd_skills, total_exp, min_exp, knockout_reasons):
+    def _generate_reasoning(self, cv, job, matched_skills, jd_skills, total_exp, min_exp, knockout_reasons, overall_score=0, threshold=60, hard_filter_passed=True, status="Considered"):
         """
         Uses Google Gemini or OpenAI LLM if API Key is available, otherwise uses deterministic logic.
         """
@@ -142,6 +143,11 @@ Responsibilities & Description:
 === CANDIDATE PROFILE (BLIND-CV / MERIT BASED) ===
 {json.dumps(cv, indent=2, ensure_ascii=False)}
 
+=== EVALUATION METRICS ===
+Match Score: {overall_score}%
+Passing Threshold: {threshold}%
+Decision Status: {status}
+
 === EVALUATION INSTRUCTIONS (EXPLAINABLE AI) ===
 1. PROS (Candidate Strengths & Value-Add Potential):
    - Analyze candidate's real project/work track record relevance to position requirements.
@@ -150,6 +156,8 @@ Responsibilities & Description:
 2. CONS (Gaps & Areas for Consideration):
    - Highlight essential technical software/tools or certifications required by the job but missing from the CV.
    - Highlight experience gaps, depth variance, or onboarding adaptation needed.
+3. RECOMMENDATION REASON:
+   - Provide a direct, professional 1-2 sentence executive explanation of WHY this candidate is {status} based on their {overall_score}% score against the {threshold}% threshold, core skill alignment, and experience match.
 
 === OUTPUT FORMAT (MANDATORY PURE JSON WITHOUT EMOJIS) ===
 {{
@@ -161,7 +169,8 @@ Responsibilities & Description:
   "cons": [
     "Area of consideration regarding specific software/tools not explicitly listed...",
     "Area of consideration regarding qualification depth or experience gap..."
-  ]
+  ],
+  "recommendation_reason": "Executive rationale explaining why the candidate was {status}..."
 }}
 """
             text = None
@@ -233,9 +242,17 @@ Responsibilities & Description:
                         data = json.loads(json_content)
                         pros = data.get("pros", [])
                         cons = data.get("cons", [])
+                        rec_reason = data.get("recommendation_reason", "")
                         if pros or cons:
                             provider_label = f"Google Gemini ({self.model_name})" if self.provider == "gemini" else f"OpenAI ({self.model_name})"
-                            return pros, cons, provider_label
+                            if not rec_reason:
+                                if status == "Pass":
+                                    rec_reason = f"Candidate exceeds the qualification threshold ({overall_score}% vs {threshold}% min) with proven technical proficiency and relevant experience."
+                                elif status == "Considered":
+                                    rec_reason = f"Candidate achieves a match score of {overall_score}%, showing potential but presenting minor skill or depth gaps relative to the {threshold}% threshold."
+                                else:
+                                    rec_reason = f"Candidate does not meet the minimum qualification threshold ({overall_score}% vs {threshold}% min)."
+                            return pros, cons, rec_reason, provider_label
                 except Exception as e:
                     print(f"[Matcher AI Reasoning JSON Parse Error]: {e}")
 
@@ -295,4 +312,12 @@ Responsibilities & Description:
         if missing_soft:
             cons.append(f"Soft skills may require further verification during interview: {', '.join(missing_soft)}.")
 
-        return pros, cons, "Local Intelligent Rule Engine (Offline)"
+        if status == "Pass":
+            rec_reason = f"Candidate successfully passed evaluation with a match score of {overall_score}%, exceeding the {threshold}% threshold. Profile shows strong technical alignment and meets required experience expectations."
+        elif status == "Considered":
+            rec_reason = f"Candidate is under consideration with a match score of {overall_score}%. Demonstrates foundational competencies but shows minor skill or experience depth gaps relative to the {threshold}% threshold."
+        else:
+            reasons_suffix = f" due to mandatory knockout criteria: {'; '.join(knockout_reasons)}" if knockout_reasons else f" falling below the minimum {threshold}% threshold"
+            rec_reason = f"Candidate is rejected with an overall score of {overall_score}%,{reasons_suffix}."
+
+        return pros, cons, rec_reason, "Local Intelligent Rule Engine (Offline)"

@@ -735,6 +735,17 @@ else:
                             for con in item["justification"]["cons"]:
                                 st.markdown(f"- {con}")
 
+                        rec_reason = item["justification"].get("recommendation_reason")
+                        if rec_reason:
+                            st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+                            st.markdown("**Executive Status Explanation (Decision Rationale):**")
+                            if item["status"] == "Pass":
+                                st.success(f"**Accepted (Pass):** {rec_reason}")
+                            elif item["status"] == "Considered":
+                                st.warning(f"**Under Consideration (Considered):** {rec_reason}")
+                            else:
+                                st.error(f"**Rejected:** {rec_reason}")
+
         with tab2:
             st.subheader("🛡️ Blind-CV Anonymization Audit")
             st.info("This feature allows you to granularly select personal identifiable information (PII) to be masked before data is evaluated, guaranteeing 100% merit-based assessment.")
