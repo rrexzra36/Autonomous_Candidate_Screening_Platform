@@ -512,6 +512,9 @@ st.markdown("---")
 # ==========================================
 st.header("3️⃣ AI Screening & Evaluation Results")
 
+if "weights_reset_key" not in st.session_state:
+    st.session_state["weights_reset_key"] = 0
+
 if not active_job:
     st.info("📋 Please setup or upload a **Job Description** in **Step 1** first.")
 elif not candidates_to_process:
@@ -529,7 +532,7 @@ else:
                 max_value=100,
                 value=60,
                 step=5,
-                key="score_threshold_input",
+                key=f"score_threshold_input_{st.session_state['weights_reset_key']}",
                 help="Minimum overall score percentage for a candidate to qualify for the shortlist."
             )
         with col_w1:
@@ -539,7 +542,7 @@ else:
                 max_value=100,
                 value=50,
                 step=5,
-                key="weight_skill",
+                key=f"weight_skill_{st.session_state['weights_reset_key']}",
                 help="Weight percentage for candidate technical and soft skills match."
             )
         with col_w2:
@@ -549,7 +552,7 @@ else:
                 max_value=100,
                 value=30,
                 step=5,
-                key="weight_exp",
+                key=f"weight_exp_{st.session_state['weights_reset_key']}",
                 help="Weight percentage for work experience duration and relevant industry track record."
             )
         with col_w3:
@@ -559,7 +562,7 @@ else:
                 max_value=100,
                 value=20,
                 step=5,
-                key="weight_edu",
+                key=f"weight_edu_{st.session_state['weights_reset_key']}",
                 help="Weight percentage for formal degree and academic background."
             )
 
@@ -579,10 +582,7 @@ else:
                 st.warning(f"⚠️ Total scoring weight must equal 100% (Current Total: **{total_weight}%**).")
         with col_reset_btn:
             if st.button("🔄 Reset Weights", use_container_width=True, help="Reset scoring weights to default values (60% Threshold, 50% Skills, 30% Experience, 20% Education)."):
-                st.session_state["score_threshold_input"] = 60
-                st.session_state["weight_skill"] = 50
-                st.session_state["weight_exp"] = 30
-                st.session_state["weight_edu"] = 20
+                st.session_state["weights_reset_key"] += 1
                 st.rerun()
         with col_btn:
             is_disabled = (total_weight != 100)
