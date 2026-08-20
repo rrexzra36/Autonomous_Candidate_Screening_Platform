@@ -191,7 +191,10 @@ effective_model = st.session_state.get("connected_model", selected_model) if is_
 # ==========================================
 st.header("1️⃣ Pengaturan Posisi & Kriteria Lowongan (Job Description)")
 
-tab_jd_pdf, tab_jd_text = st.tabs(["📄 Upload Dokumen PDF", "✍️ Ketik / Tempel Teks Langsung"])
+if "drive_jd_file" not in st.session_state:
+    st.session_state["drive_jd_file"] = None
+
+tab_jd_pdf, tab_jd_drive, tab_jd_text = st.tabs(["📄 Upload Dokumen PDF", "📁 Impor dari Google Drive", "✍️ Ketik / Tempel Teks Langsung"])
 
 active_job = None
 
@@ -223,6 +226,65 @@ with tab_jd_pdf:
             except Exception as e:
                 st.error(f"❌ **Gagal Memproses PDF:** {str(e)}")
                 active_job = None
+
+with tab_jd_drive:
+    st.markdown("**Impor Berkas Lowongan (Job Description) dari Google Drive:**")
+    st.caption("💡 Masukkan tautan **1 file PDF spesifik** atau **folder Google Drive publik** yang memuat dokumen Job Description.")
+    
+    col_jd_dr_in, col_jd_dr_btn = st.columns([3, 1])
+    with col_jd_dr_in:
+        drive_jd_url = st.text_input(
+            "Tautan (URL) Job Description Google Drive:",
+            placeholder="Contoh: https://drive.google.com/file/d/... atau https://drive.google.com/drive/folders/...",
+            help="Salin dan tempelkan link file atau folder Google Drive yang berisi dokumen lowongan kerja.",
+            key="drive_jd_input"
+        )
+    with col_jd_dr_btn:
+        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+        if st.button("📥 Impor Lowongan", type="primary", use_container_width=True):
+            if drive_jd_url and drive_jd_url.strip():
+                with st.spinner("⏳ Menghubungi Google Drive & mengunduh berkas Job Description..."):
+                    jd_files, err = GoogleDriveImporter.fetch_pdf_files_from_drive(drive_jd_url)
+                    if err:
+                        st.error(err)
+                        st.session_state["drive_jd_file"] = None
+                    else:
+                        st.session_state["drive_jd_file"] = jd_files[0]
+                        st.success(f"✅ Berhasil mengimpor berkas [{jd_files[0]['name']}] dari Google Drive.")
+                        st.rerun()
+            else:
+                st.warning("⚠️ Masukkan tautan Google Drive terlebih dahulu.")
+
+    if st.session_state.get("drive_jd_file"):
+        jd_f = st.session_state["drive_jd_file"]
+        col_jdt, col_jdc = st.columns([3, 1])
+        with col_jdt:
+            st.info(f"📄 **Berkas Terpilih dari Drive:** `{jd_f['name']}` ({round(jd_f['size']/1024, 1)} KB)")
+        with col_jdc:
+            if st.button("🗑️ Reset Berkas Drive", key="btn_reset_jd_drive"):
+                st.session_state["drive_jd_file"] = None
+                st.rerun()
+        
+        if active_job is None:
+            with st.spinner(f"🤖 AI ({provider_choice}) sedang memvalidasi Job Description dari Google Drive..."):
+                try:
+                    jd_text = DocumentParser.extract_text_from_pdf(jd_f["bytes"])
+                    active_job = DocumentParser.parse_job_description(
+                        jd_text,
+                        api_key=effective_api_key,
+                        provider=selected_provider,
+                        model_name=effective_model
+                    )
+                    st.success(f"✅ Berhasil mengekstrak kriteria lowongan: **{active_job['title']}**")
+                except EmptyPDFError as e:
+                    st.error(f"❌ **File PDF Tidak Dapat Dibaca / Kosong:** {str(e)}")
+                    active_job = None
+                except InvalidDocumentError as e:
+                    st.error(f"❌ **Dokumen Tidak Sesuai:** {str(e)}")
+                    active_job = None
+                except Exception as e:
+                    st.error(f"❌ **Gagal Memproses Dokumen:** {str(e)}")
+                    active_job = None
 
 with tab_jd_text:
     jd_raw_text = st.text_area(
