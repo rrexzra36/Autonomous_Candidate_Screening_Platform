@@ -447,36 +447,63 @@ st.markdown("---")
 # ==========================================
 # STEP 3: MATCHING & DASHBOARD RESULTS
 # ==========================================
-if candidates_to_process and active_job:
-    matcher = CandidateMatcherEngine(
-        api_key=effective_api_key,
-        provider=selected_provider,
-        model_name=effective_model
-    )
-    evaluated_results = []
+st.header("3️⃣ Evaluasi & Hasil Screening AI")
 
-    for raw_cv in candidates_to_process:
-        cv_to_process = BlindCVAnonymizer.anonymize_cv(raw_cv, enabled_fields=active_masked_fields) if enable_blind_cv else raw_cv
-        
-        # Cache Key Evaluasi Scoring untuk mencegah Hit API berulang kali saat klik di UI
-        eval_cache_key = f"{raw_cv.get('cv_id')}_{active_job.get('job_id')}_{enable_blind_cv}_{'_'.join(sorted(active_masked_fields))}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
-        
-        if eval_cache_key in st.session_state["eval_results_store"]:
-            eval_res = st.session_state["eval_results_store"][eval_cache_key]
-        else:
-            eval_res = matcher.evaluate_candidate(cv_to_process, active_job)
-            eval_res["raw_cv"] = raw_cv
-            eval_res["anonymized_cv"] = cv_to_process
-            st.session_state["eval_results_store"][eval_cache_key] = eval_res
+if "analysis_triggered" not in st.session_state:
+    st.session_state["analysis_triggered"] = False
 
-        evaluated_results.append(eval_res)
+if not active_job:
+    st.info("📋 Silakan atur atau unggah **Job Description** pada **Langkah 1** terlebih dahulu.")
+elif not candidates_to_process:
+    st.info("📤 Silakan unggah atau impor berkas **CV Kandidat** pada **Langkah 2** terlebih dahulu.")
+else:
+    with st.container(border=True):
+        col_st_info, col_st_btn = st.columns([3, 1])
+        with col_st_info:
+            st.markdown(f"Siap mengevaluasi **{len(candidates_to_process)} CV kandidat** untuk posisi **{active_job['title']}**.")
+            status_text = "🛡️ Protokol Blind-CV Aktif" if enable_blind_cv else "⚪ Mode Penilaian Standar"
+            model_info = f"🤖 Engine: {provider_choice} ({effective_model})" if effective_api_key else "⚡ Engine: Local Intelligent Rule Engine (Offline)"
+            st.caption(f"{status_text} | {model_info}")
+        with col_st_btn:
+            st.write("")
+            if st.button("🚀 Mulai Analisis AI", type="primary", use_container_width=True):
+                st.session_state["analysis_triggered"] = True
+                st.rerun()
 
-    evaluated_results.sort(key=lambda x: x["overall_score"], reverse=True)
+    if st.session_state.get("analysis_triggered"):
+        matcher = CandidateMatcherEngine(
+            api_key=effective_api_key,
+            provider=selected_provider,
+            model_name=effective_model
+        )
+        evaluated_results = []
+        progress_bar = st.progress(0, text="Sedang menganalisis kecocokan kandidat...")
 
-    tab1, tab2, tab3 = st.tabs(["🏆 Leaderboard & Hasil Seleksi", "🛡️ Blind-CV Anonymization", "📊 Distribusi & Analisis"])
+        for idx, raw_cv in enumerate(candidates_to_process):
+            cand_name = raw_cv.get("personal_info", {}).get("full_name") or f"Kandidat #{idx+1}"
+            progress_bar.progress((idx + 1) / len(candidates_to_process), text=f"🤖 Mengevaluasi {cand_name} ({idx+1}/{len(candidates_to_process)})...")
+            cv_to_process = BlindCVAnonymizer.anonymize_cv(raw_cv, enabled_fields=active_masked_fields) if enable_blind_cv else raw_cv
+            
+            # Cache Key Evaluasi Scoring untuk mencegah Hit API berulang kali saat klik di UI
+            eval_cache_key = f"{raw_cv.get('cv_id')}_{active_job.get('job_id')}_{enable_blind_cv}_{'_'.join(sorted(active_masked_fields))}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+            
+            if eval_cache_key in st.session_state["eval_results_store"]:
+                eval_res = st.session_state["eval_results_store"][eval_cache_key]
+            else:
+                eval_res = matcher.evaluate_candidate(cv_to_process, active_job)
+                eval_res["raw_cv"] = raw_cv
+                eval_res["anonymized_cv"] = cv_to_process
+                st.session_state["eval_results_store"][eval_cache_key] = eval_res
 
-    with tab1:
-        st.subheader(f"Hasil Evaluasi Kandidat untuk Posisi: {active_job['title']}")
+            evaluated_results.append(eval_res)
+
+        progress_bar.empty()
+        evaluated_results.sort(key=lambda x: x["overall_score"], reverse=True)
+
+        tab1, tab2, tab3 = st.tabs(["🏆 Leaderboard & Hasil Seleksi", "🛡️ Blind-CV Anonymization", "📊 Distribusi & Analisis"])
+
+        with tab1:
+            st.subheader(f"Hasil Evaluasi Kandidat untuk Posisi: {active_job['title']}")
         
         filtered_list = [c for c in evaluated_results if c["overall_score"] >= min_score]
         
@@ -613,12 +640,5 @@ if candidates_to_process and active_job:
             } for c in evaluated_results
         ])
         st.bar_chart(df_plot.set_index("Kandidat"))
-
-elif not active_job and not candidates_to_process:
-    st.info("💡 **Langkah Awal:** Silakan unggah dokumen PDF Job Description pada bagian (1) dan PDF CV kandidat pada bagian (2) di atas.")
-elif not active_job:
-    st.warning("⚠️ Dokumen Job Description yang valid belum diunggah. Silakan unggah berkas PDF lowongan pada bagian (1).")
-elif not candidates_to_process:
-    st.info("💡 Dokumen lowongan siap. Silakan unggah berkas CV kandidat pada bagian (2) untuk menjalankan evaluasi.")
 
 st.caption("Autonomous Candidate Screening Platform v1.6.0 | AI Specialist Technical Assessment")
