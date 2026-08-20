@@ -194,7 +194,7 @@ st.header("1️⃣ Pengaturan Posisi & Kriteria Lowongan (Job Description)")
 if "drive_jd_file" not in st.session_state:
     st.session_state["drive_jd_file"] = None
 
-tab_jd_pdf, tab_jd_drive, tab_jd_text = st.tabs(["📄 Upload Dokumen PDF", "📁 Impor dari Google Drive", "✍️ Ketik / Tempel Teks Langsung"])
+tab_jd_pdf, tab_jd_text, tab_jd_drive = st.tabs(["📄 Upload Dokumen PDF", "✍️ Ketik / Tempel Teks Langsung", "📁 Impor dari Google Drive"])
 
 active_job = None
 
@@ -226,6 +226,40 @@ with tab_jd_pdf:
             except Exception as e:
                 st.error(f"❌ **Gagal Memproses PDF:** {str(e)}")
                 active_job = None
+
+with tab_jd_text:
+    jd_raw_text = st.text_area(
+        "Ketik atau tempel teks rincian lowongan kerja di sini:",
+        height=220,
+        placeholder=(
+            "Contoh:\n"
+            "Posisi: Junior Architect\n"
+            "Jurusan: Architecture, Interior Design, or a related field\n"
+            "Requirements: Minimum 2 years experience in design and build, AutoCAD, SketchUp, Revit, Technical Drawing...\n"
+            "Responsibilities: To support project execution and design coordination..."
+        ),
+        key="jd_text_area"
+    )
+    if jd_raw_text and len(jd_raw_text.strip()) >= 20:
+        if active_job is None:
+            with st.spinner(f"🤖 AI ({provider_choice}) sedang memproses teks Job Description..."):
+                try:
+                    active_job = DocumentParser.parse_job_description(
+                        jd_raw_text.strip(),
+                        api_key=effective_api_key,
+                        provider=selected_provider,
+                        model_name=effective_model
+                    )
+                    st.success(f"✅ Berhasil mengekstrak kriteria lowongan: **{active_job['title']}**")
+                except InvalidDocumentError as e:
+                    st.error(f"❌ **Format Teks Kurang Lengkap:** {str(e)}")
+                    st.warning("💡 **Tips:** Pastikan teks memuat informasi nama posisi, kualifikasi/syarat, atau tanggung jawab pekerjaan.")
+                    active_job = None
+                except Exception as e:
+                    st.error(f"❌ **Gagal Memproses Teks:** {str(e)}")
+                    active_job = None
+    elif jd_raw_text:
+        st.warning("⚠️ Teks terlalu pendek. Masukkan informasi posisi dan kualifikasi lowongan secara lebih lengkap.")
 
 with tab_jd_drive:
     st.markdown("**Impor Berkas Lowongan (Job Description) dari Google Drive:**")
@@ -285,40 +319,6 @@ with tab_jd_drive:
                 except Exception as e:
                     st.error(f"❌ **Gagal Memproses Dokumen:** {str(e)}")
                     active_job = None
-
-with tab_jd_text:
-    jd_raw_text = st.text_area(
-        "Ketik atau tempel teks rincian lowongan kerja di sini:",
-        height=220,
-        placeholder=(
-            "Contoh:\n"
-            "Posisi: Junior Architect\n"
-            "Jurusan: Architecture, Interior Design, or a related field\n"
-            "Requirements: Minimum 2 years experience in design and build, AutoCAD, SketchUp, Revit, Technical Drawing...\n"
-            "Responsibilities: To support project execution and design coordination..."
-        ),
-        key="jd_text_area"
-    )
-    if jd_raw_text and len(jd_raw_text.strip()) >= 20:
-        if active_job is None:
-            with st.spinner(f"🤖 AI ({provider_choice}) sedang memproses teks Job Description..."):
-                try:
-                    active_job = DocumentParser.parse_job_description(
-                        jd_raw_text.strip(),
-                        api_key=effective_api_key,
-                        provider=selected_provider,
-                        model_name=effective_model
-                    )
-                    st.success(f"✅ Berhasil mengekstrak kriteria lowongan: **{active_job['title']}**")
-                except InvalidDocumentError as e:
-                    st.error(f"❌ **Format Teks Kurang Lengkap:** {str(e)}")
-                    st.warning("💡 **Tips:** Pastikan teks memuat informasi nama posisi, kualifikasi/syarat, atau tanggung jawab pekerjaan.")
-                    active_job = None
-                except Exception as e:
-                    st.error(f"❌ **Gagal Memproses Teks:** {str(e)}")
-                    active_job = None
-    elif jd_raw_text:
-        st.warning("⚠️ Teks terlalu pendek. Masukkan informasi posisi dan kualifikasi lowongan secara lebih lengkap.")
 
 # Display extracted/active Job Criteria
 if active_job:
