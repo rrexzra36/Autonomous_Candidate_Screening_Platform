@@ -89,38 +89,79 @@ min_score = st.sidebar.slider("Minimum Shortlist Score Threshold (%):", 0, 100, 
 # ==========================================
 st.header("1️⃣ Pengaturan Posisi & Kriteria Lowongan (Job Description)")
 
-uploaded_jd_pdf = st.file_uploader(
-    "Upload Dokumen PDF Job Description (berisi Job Title, Requirements, Responsibilities):",
-    type=["pdf"],
-    key="jd_pdf_uploader"
+jd_input_mode = st.radio(
+    "Pilih Metode Input Job Description:",
+    ["📄 Upload Dokumen PDF", "✍️ Ketik / Tempel Teks Langsung"],
+    horizontal=True
 )
 
 active_job = None
 
-if uploaded_jd_pdf is not None:
-    with st.spinner(f"🤖 AI ({provider_choice}) sedang membaca & memvalidasi PDF Job Description..."):
-        try:
-            jd_text = DocumentParser.extract_text_from_pdf(uploaded_jd_pdf.getvalue())
-            active_job = DocumentParser.parse_job_description(
-                jd_text,
-                api_key=active_api_key,
-                provider=selected_provider,
-                model_name=selected_model
-            )
-            st.success(f"✅ Berhasil mengekstrak kriteria lowongan: **{active_job['title']}**")
-        except EmptyPDFError as e:
-            st.error(f"❌ **File PDF Tidak Dapat Dibaca / Kosong:** {str(e)}")
-            st.info("💡 **Solusi:** Pastikan berkas PDF memiliki teks digital (bukan hasil scan/foto tanpa layer OCR teks).")
-            active_job = None
-        except InvalidDocumentError as e:
-            st.error(f"❌ **Dokumen Tidak Sesuai:** {str(e)}")
-            st.warning("💡 **Tips:** Pastikan berkas yang diunggah benar-benar memuat informasi lowongan kerja, kualifikasi/syarat, atau deskripsi pekerjaan.")
-            active_job = None
-        except Exception as e:
-            st.error(f"❌ **Gagal Memproses PDF:** {str(e)}")
-            active_job = None
+if jd_input_mode == "📄 Upload Dokumen PDF":
+    uploaded_jd_pdf = st.file_uploader(
+        "Upload Dokumen PDF Job Description (berisi Job Title, Requirements, Responsibilities):",
+        type=["pdf"],
+        key="jd_pdf_uploader"
+    )
+    if uploaded_jd_pdf is not None:
+        with st.spinner(f"🤖 AI ({provider_choice}) sedang membaca & memvalidasi PDF Job Description..."):
+            try:
+                jd_text = DocumentParser.extract_text_from_pdf(uploaded_jd_pdf.getvalue())
+                active_job = DocumentParser.parse_job_description(
+                    jd_text,
+                    api_key=active_api_key,
+                    provider=selected_provider,
+                    model_name=selected_model
+                )
+                st.success(f"✅ Berhasil mengekstrak kriteria lowongan: **{active_job['title']}**")
+            except EmptyPDFError as e:
+                st.error(f"❌ **File PDF Tidak Dapat Dibaca / Kosong:** {str(e)}")
+                st.info("💡 **Solusi:** Pastikan berkas PDF memiliki teks digital (bukan hasil scan/foto tanpa layer OCR teks).")
+                active_job = None
+            except InvalidDocumentError as e:
+                st.error(f"❌ **Dokumen Tidak Sesuai:** {str(e)}")
+                st.warning("💡 **Tips:** Pastikan berkas yang diunggah benar-benar memuat informasi lowongan kerja, kualifikasi/syarat, atau deskripsi pekerjaan.")
+                active_job = None
+            except Exception as e:
+                st.error(f"❌ **Gagal Memproses PDF:** {str(e)}")
+                active_job = None
+    else:
+        st.info("📄 Silakan upload berkas PDF Job Description untuk memulai proses seleksi.")
+
 else:
-    st.info("📄 Silakan upload berkas PDF Job Description untuk memulai proses seleksi.")
+    jd_raw_text = st.text_area(
+        "Ketik atau tempel teks rincian lowongan kerja di sini:",
+        height=220,
+        placeholder=(
+            "Contoh:\n"
+            "Posisi: Junior Architect\n"
+            "Jurusan: Architecture, Interior Design, or a related field\n"
+            "Requirements: Minimum 2 years experience in design and build, AutoCAD, SketchUp, Revit, Technical Drawing...\n"
+            "Responsibilities: To support project execution and design coordination..."
+        ),
+        key="jd_text_area"
+    )
+    if jd_raw_text and len(jd_raw_text.strip()) >= 20:
+        with st.spinner(f"🤖 AI ({provider_choice}) sedang memproses teks Job Description..."):
+            try:
+                active_job = DocumentParser.parse_job_description(
+                    jd_raw_text.strip(),
+                    api_key=active_api_key,
+                    provider=selected_provider,
+                    model_name=selected_model
+                )
+                st.success(f"✅ Berhasil mengekstrak kriteria lowongan: **{active_job['title']}**")
+            except InvalidDocumentError as e:
+                st.error(f"❌ **Format Teks Kurang Lengkap:** {str(e)}")
+                st.warning("💡 **Tips:** Pastikan teks memuat informasi nama posisi, kualifikasi/syarat, atau tanggung jawab pekerjaan.")
+                active_job = None
+            except Exception as e:
+                st.error(f"❌ **Gagal Memproses Teks:** {str(e)}")
+                active_job = None
+    elif jd_raw_text:
+        st.warning("⚠️ Teks terlalu pendek. Masukkan informasi posisi dan kualifikasi lowongan secara lebih lengkap.")
+    else:
+        st.info("✍️ Silakan ketik atau tempel teks rincian lowongan pekerjaan pada kotak di atas.")
 
 # Display extracted/active Job Criteria
 if active_job:
