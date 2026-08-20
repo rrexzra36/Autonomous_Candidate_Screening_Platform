@@ -526,7 +526,6 @@ elif not candidates_to_process:
 else:
     with st.container(border=True):
         st.markdown(f"Ready to evaluate **{len(candidates_to_process)} candidate CVs** for **{active_job['title']}**.")
-        st.markdown("---")
         
         st.markdown("**⚙️ Scoring Weights Configuration:**")
         col_w1, col_w2, col_w3 = st.columns(3)
@@ -636,7 +635,15 @@ else:
                     st.markdown(f"#### #{rank} **{real_name}**{alias_label} — Match Score: **{item['overall_score']}%**")
                     
                     col_a, col_b = st.columns(2)
-                    col_a.markdown(f"📌 **Recommendation Status:** `{item['status']}`")
+                    status_val = item["status"]
+                    if status_val == "Pass":
+                        status_styled = '<span style="color:#16a34a; font-weight:bold; font-size:1.05rem;">Pass</span>'
+                    elif status_val == "Considered":
+                        status_styled = '<span style="color:#d97706; font-weight:bold; font-size:1.05rem;">Considered</span>'
+                    else:
+                        status_styled = '<span style="color:#dc2626; font-weight:bold; font-size:1.05rem;">Rejected</span>'
+                    
+                    col_a.markdown(f"📌 **Recommendation Status:** {status_styled}", unsafe_allow_html=True)
                     col_b.markdown(f"🎯 **Skill Compatibility:** `{item['score_breakdown']['skill_match']}%`")
                     
                     with st.expander("Review"):
