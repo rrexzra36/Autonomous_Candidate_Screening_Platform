@@ -162,7 +162,7 @@ if active_api_key:
                         st.sidebar.error(f"❌ **Detail Error:** {err_str}")
 
     else:
-        st.sidebar.success(f"🟢 **Connected:** {st.session_state['connected_provider']}\n\nModel: `{st.session_state['connected_model']}`")
+        st.sidebar.success(f"🟢 **Connected**")
         if st.sidebar.button("🔌 Disconnect", use_container_width=True):
             st.session_state["api_connected"] = False
             st.session_state["connected_model"] = ""
@@ -310,6 +310,10 @@ st.header("2️⃣ Pengumpulan & Upload CV Kandidat")
 
 if "cv_uploader_key" not in st.session_state:
     st.session_state["cv_uploader_key"] = 0
+if "parsed_cv_store" not in st.session_state:
+    st.session_state["parsed_cv_store"] = {}
+if "eval_results_store" not in st.session_state:
+    st.session_state["eval_results_store"] = {}
 
 col_up_title, col_clear_btn = st.columns([3, 1])
 with col_up_title:
@@ -317,6 +321,8 @@ with col_up_title:
 with col_clear_btn:
     if st.button("🗑️ Hapus Semua CV", help="Klik untuk menghapus/mereset seluruh berkas CV yang telah diunggah."):
         st.session_state["cv_uploader_key"] += 1
+        st.session_state["parsed_cv_store"] = {}
+        st.session_state["eval_results_store"] = {}
         st.rerun()
 
 uploaded_cv_files = st.file_uploader(
@@ -332,10 +338,19 @@ candidates_to_process = []
 if uploaded_cv_files:
     st.write(f"📁 **{len(uploaded_cv_files)} berkas CV diunggah untuk diproses.**")
     invalid_cv_count = 0
-    with st.spinner(f"🤖 AI ({provider_choice}) sedang memvalidasi dan mengekstrak seluruh PDF CV..."):
+    with st.spinner(f"🤖 Memvalidasi dan memproses CV kandidat..."):
         for cv_file in uploaded_cv_files:
+            file_bytes = cv_file.getvalue()
+            cv_cache_key = f"{cv_file.name}_{len(file_bytes)}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+            
+            # Cek apakah CV ini sudah pernah di-parse sebelumnya di memori sesi
+            if cv_cache_key in st.session_state["parsed_cv_store"]:
+                parsed_cv = st.session_state["parsed_cv_store"][cv_cache_key]
+                candidates_to_process.append(parsed_cv)
+                continue
+
             try:
-                raw_text = DocumentParser.extract_text_from_pdf(cv_file.getvalue())
+                raw_text = DocumentParser.extract_text_from_pdf(file_bytes)
                 parsed_cv = DocumentParser.parse_candidate_cv(
                     raw_text,
                     filename=cv_file.name,
@@ -343,6 +358,7 @@ if uploaded_cv_files:
                     provider=selected_provider,
                     model_name=effective_model
                 )
+                st.session_state["parsed_cv_store"][cv_cache_key] = parsed_cv
                 candidates_to_process.append(parsed_cv)
             except EmptyPDFError:
                 st.warning(f"⚠️ **File Dilewati [{cv_file.name}]:** Berkas kosong atau scan gambar tanpa teks digital.")
@@ -376,9 +392,18 @@ if candidates_to_process and active_job:
 
     for raw_cv in candidates_to_process:
         cv_to_process = BlindCVAnonymizer.anonymize_cv(raw_cv, enabled_fields=active_masked_fields) if enable_blind_cv else raw_cv
-        eval_res = matcher.evaluate_candidate(cv_to_process, active_job)
-        eval_res["raw_cv"] = raw_cv
-        eval_res["anonymized_cv"] = cv_to_process
+        
+        # Cache Key Evaluasi Scoring untuk mencegah Hit API berulang kali saat klik di UI
+        eval_cache_key = f"{raw_cv.get('cv_id')}_{active_job.get('job_id')}_{enable_blind_cv}_{'_'.join(sorted(active_masked_fields))}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+        
+        if eval_cache_key in st.session_state["eval_results_store"]:
+            eval_res = st.session_state["eval_results_store"][eval_cache_key]
+        else:
+            eval_res = matcher.evaluate_candidate(cv_to_process, active_job)
+            eval_res["raw_cv"] = raw_cv
+            eval_res["anonymized_cv"] = cv_to_process
+            st.session_state["eval_results_store"][eval_cache_key] = eval_res
+
         evaluated_results.append(eval_res)
 
     evaluated_results.sort(key=lambda x: x["overall_score"], reverse=True)
@@ -405,17 +430,19 @@ if candidates_to_process and active_job:
         st.markdown("### 📋 Daftar Kandidat Terurut (Ranking)")
 
         for rank, item in enumerate(evaluated_results, start=1):
-            display_name = item["candidate_alias"] if enable_blind_cv else item["raw_cv"]["personal_info"].get("full_name", item["cv_id"])
+            raw_personal = item["raw_cv"].get("personal_info", {})
+            real_name = raw_personal.get("full_name") or item["candidate_alias"]
+            alias_label = f" ({item['candidate_alias']})" if enable_blind_cv else ""
             
             with st.container(border=True):
-                st.markdown(f"#### #{rank} **{display_name}** — Skor Kecocokan: **{item['overall_score']}%**")
+                st.markdown(f"#### #{rank} **{real_name}**{alias_label} — Skor Kecocokan: **{item['overall_score']}%**")
                 
                 col_a, col_b = st.columns(2)
                 col_a.markdown(f"📌 **Status Rekomendasi:** `{item['status']}`")
                 col_b.markdown(f"🎯 **Kesesuaian Skill:** `{item['score_breakdown']['skill_match']}%`")
                 
                 with st.expander("Review"):
-                    active_profile = item["anonymized_cv"] if enable_blind_cv else item["raw_cv"]
+                    active_profile = item["raw_cv"]
                     p_info = active_profile.get("personal_info", {})
                     
                     st.markdown("##### Informasi Kandidat")
