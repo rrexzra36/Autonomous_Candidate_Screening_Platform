@@ -18,14 +18,14 @@ class CandidateMatcherEngine:
         self,
         api_key: str = "",
         provider: str = "gemini",
-        model_name: str = "gemini-1.5-flash",
+        model_name: str = "gemini-3-flash-preview",
         gemini_api_key: str = "",
         openai_api_key: str = "",
         *args,
         **kwargs
     ):
         self.provider = (provider or kwargs.get("provider", "gemini")).lower()
-        self.model_name = model_name or kwargs.get("model_name", "gemini-1.5-flash")
+        self.model_name = model_name or kwargs.get("model_name", "gemini-3-flash-preview")
         
         if self.provider == "openai":
             self.api_key = api_key or openai_api_key or kwargs.get("openai_api_key", "")

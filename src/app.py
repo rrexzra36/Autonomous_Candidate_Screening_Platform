@@ -288,7 +288,7 @@ active_masked_fields = []
 with st.container(border=True):
     col_blind_title, col_blind_badge = st.columns([3, 2])
     with col_blind_title:
-        st.markdown("#### 🛡️ Protokol Anti-Bias & Privasi (Blind-CV Anonymization)")
+        st.markdown("#### 🛡️ Blind-CV Anonymization")
         enable_blind_cv = st.toggle(
             "Aktifkan Blind-CV Anonymization Layer",
             value=True,
@@ -296,8 +296,6 @@ with st.container(border=True):
         )
 
     if enable_blind_cv:
-        with col_blind_badge:
-            st.success("🟢 **Proteksi Aktif:** PII Disamarkan Sebelum Scoring")
         
         st.markdown("**Pilih Parameter Identitas yang Ingin Disamarkan:**")
         col_c1, col_c2, col_c3, col_c4 = st.columns(4)
@@ -313,9 +311,6 @@ with st.container(border=True):
         with col_c4:
             if st.checkbox("Nama Kampus / Univ", value=True, key="chk_univ"): active_masked_fields.append("university")
             if st.checkbox("Nomor Telepon", value=True, key="chk_phone"): active_masked_fields.append("phone")
-    else:
-        with col_blind_badge:
-            st.info("⚪ **Mode Standar:** Penilaian Tanpa Penyamaran Data")
 
 st.markdown("---")
 
@@ -331,7 +326,7 @@ if "parsed_cv_store" not in st.session_state:
 if "eval_results_store" not in st.session_state:
     st.session_state["eval_results_store"] = {}
 
-col_up_title, col_clear_btn = st.columns([3, 1])
+col_up_title, col_clear_btn = st.columns([4, 1])
 with col_up_title:
     st.markdown("**Unggah Dokumen CV Kandidat (Multiple PDF):**")
 with col_clear_btn:
