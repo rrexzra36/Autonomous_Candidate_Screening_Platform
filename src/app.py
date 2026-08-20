@@ -37,31 +37,6 @@ provider_choice = st.sidebar.selectbox(
     index=0
 )
 
-def get_available_gemini_models(api_key: str) -> list:
-    found = []
-    if not api_key:
-        return found
-    try:
-        from google import genai
-        client = genai.Client(api_key=api_key.strip())
-        for m in client.models.list():
-            m_name = m.name.replace("models/", "")
-            if "gemini" in m_name.lower():
-                found.append(m_name)
-    except Exception:
-        pass
-
-    if not found:
-        try:
-            import google.generativeai as legacy_genai
-            legacy_genai.configure(api_key=api_key.strip())
-            for m in legacy_genai.list_models():
-                if "generateContent" in getattr(m, "supported_generation_methods", []):
-                    found.append(m.name.replace("models/", ""))
-        except Exception:
-            pass
-    return list(dict.fromkeys(found))
-
 if provider_choice == "Google Gemini":
     selected_provider = "gemini"
     
@@ -74,32 +49,25 @@ if provider_choice == "Google Gemini":
     )
     active_api_key = Config.get_active_gemini_key(api_key_input)
 
-    # Base modern models
-    base_models = [
+    # Gemini 3.x Models & Custom Input Only
+    model_options = [
         "gemini-3.1-pro-preview",
         "gemini-3.5-flash",
         "gemini-3-flash-preview",
         "gemini-3.1-flash-lite",
         "Input Model Kustom (Manual)"
     ]
-    
-    # Auto-discover if API key is present
-    live_models = get_available_gemini_models(active_api_key) if active_api_key else []
-    if live_models:
-        model_options = list(dict.fromkeys(live_models + base_models))
-    else:
-        model_options = base_models
 
     selected_model_choice = st.sidebar.selectbox(
         "Pilih Model Gemini:",
         model_options,
         index=0,
-        help="Model Gemini generasi terbaru (versi 2.5, 2.0, 3.0). Pilih 'Input Model Kustom' jika ingin memasukkan nama model spesifik."
+        help="Pilih model Gemini versi 3 atau pilih 'Input Model Kustom (Manual)' untuk mengetik nama model sendiri."
     )
     
     if selected_model_choice == "Input Model Kustom (Manual)":
-        custom_model = st.sidebar.text_input("Ketik Nama Model Gemini:", value="gemini-2.5-flash")
-        selected_model = custom_model.strip() if custom_model.strip() else "gemini-2.5-flash"
+        custom_model = st.sidebar.text_input("Ketik Nama Model Gemini:", value="gemini-3.5-flash")
+        selected_model = custom_model.strip() if custom_model.strip() else "gemini-3.5-flash"
     else:
         selected_model = selected_model_choice
 
@@ -133,7 +101,7 @@ if "connected_provider" not in st.session_state:
 if active_api_key:
     if not st.session_state["api_connected"]:
         if st.sidebar.button("🔗 Connect to Model", type="primary", use_container_width=True):
-            with st.sidebar.status("Menghubungkan ke model AI...", expanded=True) as status_box:
+            with st.spinner("Menghubungkan ke model AI..."):
                 try:
                     test_text = None
                     success_model = selected_model
@@ -143,20 +111,11 @@ if active_api_key:
                         try:
                             from google import genai
                             client = genai.Client(api_key=active_api_key)
-                            models_to_test = [selected_model, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-pro", "gemini-1.5-flash"]
-                            for m in models_to_test:
-                                if not m: continue
-                                try:
-                                    res = client.models.generate_content(
-                                        model=m,
-                                        contents="Katakan 'OK' dalam 1 kata."
-                                    )
-                                    test_text = res.text
-                                    if test_text:
-                                        success_model = m
-                                        break
-                                except Exception as em:
-                                    last_err = em
+                            res = client.models.generate_content(
+                                model=selected_model,
+                                contents="Katakan 'OK' dalam 1 kata."
+                            )
+                            test_text = res.text
                         except Exception as ec:
                             last_err = ec
 
@@ -164,19 +123,11 @@ if active_api_key:
                             try:
                                 import google.generativeai as legacy_genai
                                 legacy_genai.configure(api_key=active_api_key)
-                                for m in [selected_model, "gemini-1.5-flash", "gemini-pro"]:
-                                    if not m: continue
-                                    try:
-                                        mod = legacy_genai.GenerativeModel(m)
-                                        res = mod.generate_content("Katakan 'OK' dalam 1 kata.")
-                                        test_text = res.text
-                                        if test_text:
-                                            success_model = m
-                                            break
-                                    except Exception as el:
-                                        last_err = el
-                            except Exception as el_setup:
-                                last_err = el_setup
+                                mod = legacy_genai.GenerativeModel(selected_model)
+                                res = mod.generate_content("Katakan 'OK' dalam 1 kata.")
+                                test_text = res.text
+                            except Exception as el:
+                                last_err = el
 
                         if not test_text and last_err:
                             raise last_err
@@ -194,27 +145,24 @@ if active_api_key:
                         st.session_state["api_connected"] = True
                         st.session_state["connected_model"] = success_model
                         st.session_state["connected_provider"] = provider_choice
-                        status_box.update(label="✅ Berhasil Terhubung!", state="complete", expanded=False)
-                        st.sidebar.success(f"Terhubung ke **{success_model}**")
+                        st.sidebar.success(f"✅ Berhasil terhubung ke **{success_model}**")
                         st.rerun()
                     else:
-                        status_box.update(label="❌ Gagal Terhubung", state="error", expanded=True)
                         st.sidebar.error("❌ Model tidak merespons.")
                 except Exception as e:
                     err_str = str(e)
                     st.session_state["api_connected"] = False
-                    status_box.update(label="❌ Gagal Terhubung ke API", state="error", expanded=True)
                     if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
                         st.sidebar.error("⚠️ **Limit Kuota (429):** Kuota request akun Anda habis. Tunggu 1 menit atau buat API key baru.")
                     elif "400" in err_str or "API_KEY_INVALID" in err_str:
                         st.sidebar.error("❌ **API Key Tidak Valid (400):** Periksa kembali karakter API key yang Anda masukkan.")
                     elif "404" in err_str:
-                        st.sidebar.error("❌ **Model Tidak Ditemukan (404):** Pilih variasi model lain pada dropdown.")
+                        st.sidebar.error(f"❌ **Model '{selected_model}' Tidak Ditemukan (404):** Periksa ketersediaan model pada akun Anda atau gunakan 'Input Model Kustom'.")
                     else:
-                        st.sidebar.error(f"❌ **Detail Error:**\n`{err_str}`")
+                        st.sidebar.error(f"❌ **Detail Error:** {err_str}")
 
     else:
-        st.sidebar.success(f"🟢 **Connected:** {st.session_state['connected_provider']}\nModel: `{st.session_state['connected_model']}`")
+        st.sidebar.success(f"🟢 **Connected:** {st.session_state['connected_provider']}\n\nModel: `{st.session_state['connected_model']}`")
         if st.sidebar.button("🔌 Disconnect", use_container_width=True):
             st.session_state["api_connected"] = False
             st.session_state["connected_model"] = ""
