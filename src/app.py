@@ -476,40 +476,34 @@ candidates_to_process = []
 
 if raw_cv_items:
     invalid_cv_count = 0
-    with st.spinner(f"🤖 Validating and extracting candidate CVs..."):
-        for item in raw_cv_items:
-            fname = item["name"]
-            file_bytes = item["bytes"]
-            cv_cache_key = f"{fname}_{len(file_bytes)}"
-            
-            # Check if CV has already been parsed in session memory
-            if cv_cache_key in st.session_state["parsed_cv_store"]:
-                parsed_cv = st.session_state["parsed_cv_store"][cv_cache_key]
-                candidates_to_process.append(parsed_cv)
-                continue
+    for item in raw_cv_items:
+        fname = item["name"]
+        file_bytes = item["bytes"]
+        cv_cache_key = f"{fname}_{len(file_bytes)}"
+        
+        # Check if CV has already been parsed in session memory
+        if cv_cache_key in st.session_state["parsed_cv_store"]:
+            parsed_cv = st.session_state["parsed_cv_store"][cv_cache_key]
+            candidates_to_process.append(parsed_cv)
+            continue
 
-            try:
-                raw_text = DocumentParser.extract_text_from_pdf(file_bytes)
-                parsed_cv = DocumentParser.parse_candidate_cv(
-                    raw_text,
-                    filename=fname
-                )
-                st.session_state["parsed_cv_store"][cv_cache_key] = parsed_cv
-                candidates_to_process.append(parsed_cv)
-            except EmptyPDFError:
-                st.warning(f"⚠️ **File Skipped [{fname}]:** Empty document or pure scanned image without digital OCR text.")
-                invalid_cv_count += 1
-            except InvalidDocumentError as e:
-                st.warning(f"⚠️ **File Skipped [{fname}]:** {str(e)}")
-                invalid_cv_count += 1
-            except Exception as e:
-                st.warning(f"⚠️ **Failed to Process [{fname}]:** {str(e)}")
-                invalid_cv_count += 1
-
-    if candidates_to_process:
-        st.success(f"✅ Successfully processed {len(candidates_to_process)} valid candidate CVs.")
-    elif invalid_cv_count > 0:
-        st.error("❌ No valid candidate CVs could be processed. Please check your uploaded files.")
+        try:
+            raw_text = DocumentParser.extract_text_from_pdf(file_bytes)
+            parsed_cv = DocumentParser.parse_candidate_cv(
+                raw_text,
+                filename=fname
+            )
+            st.session_state["parsed_cv_store"][cv_cache_key] = parsed_cv
+            candidates_to_process.append(parsed_cv)
+        except EmptyPDFError:
+            st.warning(f"⚠️ **File Skipped [{fname}]:** Empty document or pure scanned image without digital OCR text.")
+            invalid_cv_count += 1
+        except InvalidDocumentError as e:
+            st.warning(f"⚠️ **File Skipped [{fname}]:** {str(e)}")
+            invalid_cv_count += 1
+        except Exception as e:
+            st.warning(f"⚠️ **Failed to Process [{fname}]:** {str(e)}")
+            invalid_cv_count += 1
 
 st.markdown("---")
 
@@ -518,21 +512,11 @@ st.markdown("---")
 # ==========================================
 st.header("3️⃣ AI Screening & Evaluation Results")
 
-if "analysis_triggered" not in st.session_state:
-    st.session_state["analysis_triggered"] = False
-
 if not active_job:
     st.info("📋 Please setup or upload a **Job Description** in **Step 1** first.")
 elif not candidates_to_process:
     st.info("📤 Please upload or import **Candidate CVs** in **Step 2** first.")
 else:
-    # Compute unique dataset signature of the current pool of candidate CVs & active job
-    current_dataset_sig = f"{active_job.get('job_id', '')}_{len(candidates_to_process)}_{'_'.join(sorted([c.get('cv_id', '') for c in candidates_to_process]))}"
-
-    # If candidate pool has changed since the last executed analysis, reset analysis_triggered to require clicking Start AI Analysis again
-    if st.session_state.get("analyzed_dataset_sig") and st.session_state.get("analyzed_dataset_sig") != current_dataset_sig:
-        st.session_state["analysis_triggered"] = False
-
     with st.container(border=True):
         st.markdown(f"Ready to evaluate **{len(candidates_to_process)} candidate CVs** for **{active_job['title']}**.")
         
@@ -586,6 +570,9 @@ else:
             "education": float(w_edu)
         }
 
+        # Unique state fingerprint for current input configuration
+        current_config_sig = f"{active_job.get('job_id', '')}_{len(candidates_to_process)}_{'_'.join(sorted([c.get('cv_id', '') for c in candidates_to_process]))}_{enable_blind_cv}_{'_'.join(sorted(active_masked_fields))}_{w_skill}_{w_exp}_{w_edu}_{threshold_score}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+
         col_warn, col_btn = st.columns([3, 1], vertical_alignment="center")
         with col_warn:
             if total_weight != 100:
@@ -593,11 +580,11 @@ else:
         with col_btn:
             is_disabled = (total_weight != 100)
             if st.button("🚀 Start AI Analysis", type="primary", use_container_width=True, disabled=is_disabled):
-                st.session_state["analysis_triggered"] = True
-                st.session_state["analyzed_dataset_sig"] = current_dataset_sig
+                st.session_state["executed_config_sig"] = current_config_sig
                 st.rerun()
 
-    if st.session_state.get("analysis_triggered"):
+    # The evaluation results and leaderboards ONLY execute and display if the user has explicitly clicked Start AI Analysis for the current configuration
+    if st.session_state.get("executed_config_sig") == current_config_sig:
         matcher = CandidateMatcherEngine(
             api_key=effective_api_key,
             provider=selected_provider,
