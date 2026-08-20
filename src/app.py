@@ -504,141 +504,142 @@ else:
 
         with tab1:
             st.subheader(f"Hasil Evaluasi Kandidat untuk Posisi: {active_job['title']}")
-        
-        filtered_list = [c for c in evaluated_results if c["overall_score"] >= min_score]
-        
-        m1, m2, m3 = st.columns(3)
-        with m1:
-            with st.container(border=True):
-                st.metric("📁 Total CV Diproses", len(evaluated_results))
-        with m2:
-            with st.container(border=True):
-                st.metric("🎯 Kandidat Lolos Shortlist", len(filtered_list))
-        with m3:
-            with st.container(border=True):
-                avg_score = round(sum(c['overall_score'] for c in evaluated_results) / len(evaluated_results), 1) if evaluated_results else 0
-                st.metric("📈 Rerata Skor Kesesuaian", f"{avg_score}%")
-
-        st.markdown("### 📋 Daftar Kandidat Terurut (Ranking)")
-
-        for rank, item in enumerate(evaluated_results, start=1):
-            raw_personal = item["raw_cv"].get("personal_info", {})
-            real_name = raw_personal.get("full_name") or item["candidate_alias"]
-            alias_label = f" ({item['candidate_alias']})" if enable_blind_cv else ""
             
-            with st.container(border=True):
-                st.markdown(f"#### #{rank} **{real_name}**{alias_label} — Skor Kecocokan: **{item['overall_score']}%**")
+            filtered_list = [c for c in evaluated_results if c["overall_score"] >= min_score]
+            
+            m1, m2, m3 = st.columns(3)
+            with m1:
+                with st.container(border=True):
+                    st.metric("📁 Total CV Diproses", len(evaluated_results))
+            with m2:
+                with st.container(border=True):
+                    st.metric("🎯 Kandidat Lolos Shortlist", len(filtered_list))
+            with m3:
+                with st.container(border=True):
+                    avg_score = round(sum(c['overall_score'] for c in evaluated_results) / len(evaluated_results), 1) if evaluated_results else 0
+                    st.metric("📈 Rerata Skor Kesesuaian", f"{avg_score}%")
+
+            st.markdown("### 📋 Daftar Kandidat Terurut (Ranking)")
+
+            for rank, item in enumerate(evaluated_results, start=1):
+                raw_personal = item["raw_cv"].get("personal_info", {})
+                real_name = raw_personal.get("full_name") or item["candidate_alias"]
+                alias_label = f" ({item['candidate_alias']})" if enable_blind_cv else ""
                 
-                col_a, col_b = st.columns(2)
-                col_a.markdown(f"📌 **Status Rekomendasi:** `{item['status']}`")
-                col_b.markdown(f"🎯 **Kesesuaian Skill:** `{item['score_breakdown']['skill_match']}%`")
-                
-                with st.expander("Review"):
-                    active_profile = item["raw_cv"]
-                    p_info = active_profile.get("personal_info", {})
+                with st.container(border=True):
+                    st.markdown(f"#### #{rank} **{real_name}**{alias_label} — Skor Kecocokan: **{item['overall_score']}%**")
                     
-                    st.markdown("##### Informasi Kandidat")
-                    col_info1, col_info2 = st.columns(2)
-                    with col_info1:
-                        st.markdown(f"- **Nama:** {p_info.get('full_name', real_name)}")
-                        st.markdown(f"- **Email:** {p_info.get('email', '-')}")
-                        st.markdown(f"- **Telepon:** {p_info.get('phone', '-')}")
-                    with col_info2:
-                        age_val = p_info.get("age", "-")
-                        age_disp = f"{age_val} tahun" if isinstance(age_val, (int, float)) else str(age_val)
-                        st.markdown(f"- **Usia:** {age_disp}")
-                        st.markdown(f"- **Gender:** {p_info.get('gender', '-')}")
-                        st.markdown(f"- **Domisili:** {p_info.get('address', '-')}")
+                    col_a, col_b = st.columns(2)
+                    col_a.markdown(f"📌 **Status Rekomendasi:** `{item['status']}`")
+                    col_b.markdown(f"🎯 **Kesesuaian Skill:** `{item['score_breakdown']['skill_match']}%`")
+                    if item.get("eval_source"):
+                        st.caption(f"⚡ *Engine Analisis:* `{item['eval_source']}`")
+                    
+                    with st.expander("Review"):
+                        active_profile = item["raw_cv"]
+                        p_info = active_profile.get("personal_info", {})
+                        
+                        st.markdown("##### Informasi Kandidat")
+                        col_info1, col_info2 = st.columns(2)
+                        with col_info1:
+                            st.markdown(f"- **Nama:** {p_info.get('full_name', real_name)}")
+                            st.markdown(f"- **Email:** {p_info.get('email', '-')}")
+                            st.markdown(f"- **Telepon:** {p_info.get('phone', '-')}")
+                        with col_info2:
+                            age_val = p_info.get("age", "-")
+                            age_disp = f"{age_val} tahun" if isinstance(age_val, (int, float)) else str(age_val)
+                            st.markdown(f"- **Usia:** {age_disp}")
+                            st.markdown(f"- **Gender:** {p_info.get('gender', '-')}")
+                            st.markdown(f"- **Domisili:** {p_info.get('address', '-')}")
 
-                    st.markdown("##### Riwayat Pendidikan")
-                    edu_list = active_profile.get("education", [])
-                    if isinstance(edu_list, list) and edu_list:
-                        for edu in edu_list:
-                            inst = edu.get("institution", "-")
-                            deg = edu.get("degree", "-")
-                            per = edu.get("period", "")
-                            per_str = f" *({per})*" if per else ""
-                            st.markdown(f"- **{inst}**{per_str}: {deg}")
-                    elif isinstance(edu_list, dict):
-                        st.markdown(f"- **{edu_list.get('institution', '-')}**: {edu_list.get('degree', '-')}")
-                    else:
-                        st.markdown("- *Tidak tercantum data pendidikan.*")
-
-                    st.markdown("##### Pengalaman Kerja & Rekam Jejak")
-                    exp_list = active_profile.get("work_experience", [])
-                    if exp_list:
-                        for exp in exp_list:
-                            role = exp.get("role", "Posisi")
-                            comp = exp.get("company", "Perusahaan")
-                            period = exp.get("period", f"{exp.get('duration_years', 0)} Tahun")
-                            st.markdown(f"- **{role}** di **{comp}** *({period})*")
-                    else:
-                        st.markdown("- *Tidak ada riwayat kerja spesifik.*")
-
-                    col_sk1, col_sk2 = st.columns(2)
-                    with col_sk1:
-                        st.markdown("##### Keahlian Teknis (Technical Skills)")
-                        tech_list = active_profile.get("technical_skills", [])
-                        if tech_list:
-                            for t in tech_list:
-                                st.markdown(f"- {t}")
+                        st.markdown("##### Riwayat Pendidikan")
+                        edu_list = active_profile.get("education", [])
+                        if isinstance(edu_list, list) and edu_list:
+                            for edu in edu_list:
+                                inst = edu.get("institution", "-")
+                                deg = edu.get("degree", "-")
+                                per = edu.get("period", "")
+                                per_str = f" *({per})*" if per else ""
+                                st.markdown(f"- **{inst}**{per_str}: {deg}")
+                        elif isinstance(edu_list, dict):
+                            st.markdown(f"- **{edu_list.get('institution', '-')}**: {edu_list.get('degree', '-')}")
                         else:
-                            st.markdown("- *Tidak tercantum skill teknis khusus.*")
+                            st.markdown("- *Tidak tercantum data pendidikan.*")
 
-                    with col_sk2:
-                        st.markdown("##### Keahlian Perilaku (Soft Skills)")
-                        soft_list = active_profile.get("soft_skills", [])
-                        if soft_list:
-                            for s in soft_list:
-                                st.markdown(f"- {s}")
+                        st.markdown("##### Pengalaman Kerja & Rekam Jejak")
+                        exp_list = active_profile.get("work_experience", [])
+                        if exp_list:
+                            for exp in exp_list:
+                                role = exp.get("role", "Posisi")
+                                comp = exp.get("company", "Perusahaan")
+                                period = exp.get("period", f"{exp.get('duration_years', 0)} Tahun")
+                                st.markdown(f"- **{role}** di **{comp}** *({period})*")
                         else:
-                            st.markdown("- *Tidak tercantum soft skill khusus.*")
+                            st.markdown("- *Tidak ada riwayat kerja spesifik.*")
 
-                    certs = active_profile.get("certifications", [])
-                    if certs:
-                        st.markdown("##### Sertifikasi & Pencapaian")
-                        for c in certs:
-                            st.markdown(f"- {c}")
+                        col_sk1, col_sk2 = st.columns(2)
+                        with col_sk1:
+                            st.markdown("##### Keahlian Teknis (Technical Skills)")
+                            tech_list = active_profile.get("technical_skills", [])
+                            if tech_list:
+                                for t in tech_list:
+                                    st.markdown(f"- {t}")
+                            else:
+                                st.markdown("- *Tidak tercantum skill teknis khusus.*")
 
-                    st.markdown("---")
-                    st.markdown("##### Analisis Kesesuaian AI (Pros & Cons)")
-                    col_pro, col_con = st.columns(2)
-                    with col_pro:
-                        st.markdown("**Keunggulan Profil (Pros):**")
-                        for pro in item["justification"]["pros"]:
-                            st.markdown(f"- {pro}")
-                    with col_con:
-                        st.markdown("**Area Pertimbangan / Gap (Cons):**")
-                        for con in item["justification"]["cons"]:
-                            st.markdown(f"- {con}")
+                        with col_sk2:
+                            st.markdown("##### Keahlian Perilaku (Soft Skills)")
+                            soft_list = active_profile.get("soft_skills", [])
+                            if soft_list:
+                                for s in soft_list:
+                                    st.markdown(f"- {s}")
+                            else:
+                                st.markdown("- *Tidak tercantum soft skill khusus.*")
 
-    with tab2:
-        st.subheader("🛡️ Blind-CV Anonymization")
-        st.info("Fitur ini memungkinkan Anda memilih secara spesifik informasi pribadi (PII) yang ingin disamarkan sebelum data dikirim ke sistem penilaian, memastikan evaluasi 100% berbasis kompetensi & rekam jejak.")
-        
+                        certs = active_profile.get("certifications", [])
+                        if certs:
+                            st.markdown("##### Sertifikasi & Pencapaian")
+                            for c in certs:
+                                st.markdown(f"- {c}")
 
-        cv_options = [c["cv_id"] for c in evaluated_results]
-        selected_audit_id = st.selectbox("Pilih CV untuk Diaudit & Dibandingkan:", cv_options)
-        target_audit = next(c for c in evaluated_results if c["cv_id"] == selected_audit_id)
-        
-        col_left, col_right = st.columns(2)
-        with col_left:
-            st.error("❌ Data Mentah CV Asli (Lengkap)")
-            st.json(target_audit["raw_cv"])
-        with col_right:
-            st.success("✅ Data Blind-CV yang Diterima AI (Lengkap & Terlindungi)")
-            st.json(target_audit["anonymized_cv"])
+                        st.markdown("---")
+                        st.markdown("##### Analisis Kesesuaian AI (Pros & Cons)")
+                        col_pro, col_con = st.columns(2)
+                        with col_pro:
+                            st.markdown("**Keunggulan Profil (Pros):**")
+                            for pro in item["justification"]["pros"]:
+                                st.markdown(f"- {pro}")
+                        with col_con:
+                            st.markdown("**Area Pertimbangan / Gap (Cons):**")
+                            for con in item["justification"]["cons"]:
+                                st.markdown(f"- {con}")
 
-    with tab3:
-        st.subheader("📊 Analisis Distribusi Skor Kandidat")
-        df_plot = pd.DataFrame([
-            {
-                "Kandidat": c["candidate_alias"] if enable_blind_cv else c["raw_cv"]["personal_info"].get("full_name", c["cv_id"]),
-                "Total Skor (%)": c["overall_score"],
-                "Skor Skill (%)": c["score_breakdown"]["skill_match"],
-                "Skor Pengalaman (%)": c["score_breakdown"]["experience_depth"]
-            } for c in evaluated_results
-        ])
-        st.bar_chart(df_plot.set_index("Kandidat"))
+        with tab2:
+            st.subheader("🛡️ Blind-CV Anonymization")
+            st.info("Fitur ini memungkinkan Anda memilih secara spesifik informasi pribadi (PII) yang ingin disamarkan sebelum data dikirim ke sistem penilaian, memastikan evaluasi 100% berbasis kompetensi & rekam jejak.")
+            
+            cv_options = [c["cv_id"] for c in evaluated_results]
+            selected_audit_id = st.selectbox("Pilih CV untuk Diaudit & Dibandingkan:", cv_options)
+            target_audit = next(c for c in evaluated_results if c["cv_id"] == selected_audit_id)
+            
+            col_left, col_right = st.columns(2)
+            with col_left:
+                st.error("❌ Data Mentah CV Asli (Lengkap)")
+                st.json(target_audit["raw_cv"])
+            with col_right:
+                st.success("✅ Data Blind-CV yang Diterima AI (Lengkap & Terlindungi)")
+                st.json(target_audit["anonymized_cv"])
+
+        with tab3:
+            st.subheader("📊 Analisis Distribusi Skor Kandidat")
+            df_plot = pd.DataFrame([
+                {
+                    "Kandidat": c["candidate_alias"] if enable_blind_cv else c["raw_cv"]["personal_info"].get("full_name", c["cv_id"]),
+                    "Total Skor (%)": c["overall_score"],
+                    "Skor Skill (%)": c["score_breakdown"]["skill_match"],
+                    "Skor Pengalaman (%)": c["score_breakdown"]["experience_depth"]
+                } for c in evaluated_results
+            ])
+            st.bar_chart(df_plot.set_index("Kandidat"))
 
 st.caption("Autonomous Candidate Screening Platform v1.6.0 | AI Specialist Technical Assessment")
