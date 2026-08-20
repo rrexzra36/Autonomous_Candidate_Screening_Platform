@@ -4,6 +4,7 @@ Multi-Modal PDF Document Parser & Entity Extraction Engine
 - Strict validation & error handling against test sheets, guides, invoices, and invalid docs
 - Parse Job Descriptions into structured screening criteria with Technical & Soft Skills separation
 - Parse CVs into candidate profile entities
+- Multi-LLM Support: Google Gemini (gemini-1.5-flash, gemini-2.5-flash, gemini-1.5-pro) & OpenAI (gpt-4o-mini, gpt-4o, gpt-4-turbo)
 """
 
 from typing import Dict, Any, List, Tuple
@@ -71,7 +72,7 @@ class DocumentParser:
 
         text_lower = text.lower()
 
-        # 1. Negative Signals (Assessment test briefs, task instructions, guides, exams, invoices)
+        # Negative Signals
         assessment_signals = [
             "technical assessment", "technical test", "assessment test", "uji teknis", "soal tes",
             "waktu pengerjaan:", "waktu pengerjaan :", "tugas anda adalah", "kriteria penilaian:",
@@ -86,7 +87,7 @@ class DocumentParser:
                     "BUKAN dokumen resmi Lowongan Kerja (Job Vacancy / Job Description). Silakan unggah dokumen deskripsi lowongan kerja yang sebenarnya."
                 )
 
-        # 2. Positive Required Structural Sections
+        # Positive Required Structural Sections
         has_req_section = bool(re.search(r"\b(requirement|requirements|kualifikasi|persyaratan|qualifications|job requirements|job qualifications|kriteria pelamar|syarat)\b", text_lower))
         has_resp_section = bool(re.search(r"\b(responsibilities|responsibility|tanggung jawab|deskripsi pekerjaan|job description|tugas dan tanggung jawab)\b", text_lower))
         has_hiring_title = bool(re.search(r"\b(we are hiring|lowongan kerja|open position|job vacancy|job title|posisi)\b", text_lower))
@@ -97,7 +98,7 @@ class DocumentParser:
                 "atau tanggung jawab pekerjaan (Responsibilities) yang sah."
             )
 
-        # 3. Minimum keyword density check
+        # Minimum keyword density check
         jd_keywords = [
             "experience", "pengalaman", "skills", "keahlian", "education", "pendidikan",
             "degree", "sarjana", "diploma", "s1", "d3", "major", "jurusan", "years", "tahun",
@@ -121,7 +122,6 @@ class DocumentParser:
 
         text_lower = text.lower()
 
-        # Reject if assessment sheet is uploaded as CV
         if "technical assessment" in text_lower or "soal tes" in text_lower:
             return False, "Dokumen yang diunggah terdeteksi sebagai soal tes asesmen, bukan berkas CV kandidat."
 
@@ -148,10 +148,8 @@ class DocumentParser:
         """
         if not candidate or len(candidate) < 3 or len(candidate) > 50:
             return False
-        # Cannot start with digits, bullets, or punctuation
         if re.match(r"^[\d\.\-\*\•\(\)\[\]\:\>\#]", candidate.strip()):
             return False
-        # Cannot contain typical verb/sentence fragments
         bad_words = [
             "menganalisis", "mengumpulkan", "membuat", "tugas", "tujuan", "latar belakang",
             "kriteria", "solusi", "anda", "kami", "proses", "hasil", "mengotomatiskan",
@@ -167,14 +165,12 @@ class DocumentParser:
         """
         Extracts a clean, valid Job Title noun phrase from JD text.
         """
-        # A. Explicit Header
         explicit_match = re.search(r"(?:job\s+title|position|posisi|lowongan|role|dibutuhkan|vacancy)\s*[:\-]\s*([^\n\r]+)", text, re.I)
         if explicit_match:
             candidate = explicit_match.group(1).strip()
             if DocumentParser._is_valid_title(candidate):
                 return candidate.strip(":- \r\n")
 
-        # B. Check first non-empty lines before REQUIREMENTS / RESPONSIBILITIES
         lines = [l.strip() for l in text.split("\n") if l.strip()]
         for line in lines[:6]:
             header_sub = re.sub(r"(?:REQUIREMENTS|JOB DESCRIPTION|KUALIFIKASI|DESKRIPSI|WE ARE HIRING|LOWONGAN|RESPONSIBILITIES).*", "", line, flags=re.I).strip(":- ")
@@ -216,7 +212,7 @@ class DocumentParser:
         return technical, soft
 
     @staticmethod
-    def parse_job_description(text: str, api_key: str = "") -> Dict[str, Any]:
+    def parse_job_description(text: str, api_key: str = "", provider: str = "gemini", model_name: str = "gemini-1.5-flash") -> Dict[str, Any]:
         """
         Converts raw JD text into structured JSON criteria with Technical and Soft Skills separation.
         """
@@ -224,9 +220,9 @@ class DocumentParser:
         if not is_valid:
             raise InvalidDocumentError(err_msg)
 
-        if api_key:
+        if api_key and api_key.strip():
             try:
-                extracted_json = DocumentParser._llm_parse_jd(text, api_key)
+                extracted_json = DocumentParser._llm_parse_jd(text, api_key, provider=provider, model_name=model_name)
                 if extracted_json and extracted_json.get("title") and DocumentParser._is_valid_title(extracted_json.get("title")):
                     all_skills = extracted_json.get("key_skills", [])
                     t_skills = extracted_json.get("technical_skills", [])
@@ -336,7 +332,7 @@ class DocumentParser:
         }
 
     @staticmethod
-    def parse_candidate_cv(text: str, filename: str = "Candidate_CV.pdf", api_key: str = "") -> Dict[str, Any]:
+    def parse_candidate_cv(text: str, filename: str = "Candidate_CV.pdf", api_key: str = "", provider: str = "gemini", model_name: str = "gemini-1.5-flash") -> Dict[str, Any]:
         """
         Converts raw CV text into structured candidate profile.
         """
@@ -344,9 +340,9 @@ class DocumentParser:
         if not is_valid:
             raise InvalidDocumentError(err_msg)
 
-        if api_key:
+        if api_key and api_key.strip():
             try:
-                extracted_json = DocumentParser._llm_parse_cv(text, filename, api_key)
+                extracted_json = DocumentParser._llm_parse_cv(text, filename, api_key, provider=provider, model_name=model_name)
                 if extracted_json and extracted_json.get("personal_info"):
                     return extracted_json
             except Exception:
@@ -409,7 +405,7 @@ class DocumentParser:
         }
 
     @staticmethod
-    def _llm_parse_jd(text: str, api_key: str) -> Dict[str, Any]:
+    def _llm_parse_jd(text: str, api_key: str, provider: str = "gemini", model_name: str = "gemini-1.5-flash") -> Dict[str, Any]:
         prompt = f"""
 Anda adalah AI HR Specialist. Ekstrak informasi Job Description berikut secara akurat ke format JSON murni:
 {text}
@@ -432,10 +428,10 @@ Struktur JSON yang WAJIB dihasilkan:
   "description": "Ringkasan deskripsi pekerjaan"
 }}
 """
-        return DocumentParser._call_gemini_json(prompt, api_key)
+        return DocumentParser._call_llm_json(prompt, api_key, provider=provider, model_name=model_name)
 
     @staticmethod
-    def _llm_parse_cv(text: str, filename: str, api_key: str) -> Dict[str, Any]:
+    def _llm_parse_cv(text: str, filename: str, api_key: str, provider: str = "gemini", model_name: str = "gemini-1.5-flash") -> Dict[str, Any]:
         prompt = f"""
 Ekstrak informasi Curriculum Vitae (CV) kandidat berikut ke dalam format JSON murni:
 {text}
@@ -470,40 +466,68 @@ Struktur JSON yang wajib dihasilkan:
   "certifications": ["Sertifikasi jika ada"]
 }}
 """
-        res = DocumentParser._call_gemini_json(prompt, api_key)
+        res = DocumentParser._call_llm_json(prompt, api_key, provider=provider, model_name=model_name)
         if res:
             res["cv_id"] = f"CV-UP-{abs(hash(filename)) % 10000}"
         return res
 
     @staticmethod
-    def _call_gemini_json(prompt: str, api_key: str) -> Dict[str, Any]:
+    def _call_llm_json(prompt: str, api_key: str, provider: str = "gemini", model_name: str = "gemini-1.5-flash") -> Dict[str, Any]:
         text = None
-        try:
-            from google import genai
-            client = genai.Client(api_key=api_key)
-            response = client.models.generate_content(
-                model="gemini-1.5-flash",
-                contents=prompt
-            )
-            text = response.text
-        except Exception:
-            pass
-
-        if not text:
+        
+        # 1. OpenAI Provider
+        if provider.lower() == "openai":
             try:
-                import google.generativeai as legacy_genai
-                legacy_genai.configure(api_key=api_key)
-                model = legacy_genai.GenerativeModel("gemini-1.5-flash")
-                response = model.generate_content(prompt)
+                import openai
+                client = openai.OpenAI(api_key=api_key.strip())
+                response = client.chat.completions.create(
+                    model=model_name or "gpt-4o-mini",
+                    response_format={"type": "json_object"},
+                    messages=[
+                        {"role": "system", "content": "Anda adalah AI HR Specialist yang mengeluarkan data dalam JSON murni."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.2
+                )
+                text = response.choices[0].message.content
+            except Exception:
+                pass
+
+        # 2. Google Gemini Provider
+        else:
+            try:
+                from google import genai
+                client = genai.Client(api_key=api_key.strip())
+                response = client.models.generate_content(
+                    model=model_name or "gemini-1.5-flash",
+                    contents=prompt
+                )
                 text = response.text
             except Exception:
                 pass
 
+            if not text:
+                try:
+                    import google.generativeai as legacy_genai
+                    legacy_genai.configure(api_key=api_key.strip())
+                    model = legacy_genai.GenerativeModel(model_name or "gemini-1.5-flash")
+                    response = model.generate_content(prompt)
+                    text = response.text
+                except Exception:
+                    pass
+
         if text:
-            text = text.strip()
-            if text.startswith("```"):
-                text = text.split("```")[1]
-                if text.startswith("json"):
-                    text = text[4:]
-            return json.loads(text.strip())
+            cleaned_text = text.strip()
+            if "```" in cleaned_text:
+                parts = cleaned_text.split("```")
+                for part in parts:
+                    if "{" in part and "}" in part:
+                        cleaned_text = part
+                        if cleaned_text.startswith("json"):
+                            cleaned_text = cleaned_text[4:]
+                        break
+            try:
+                return json.loads(cleaned_text.strip())
+            except Exception:
+                pass
         return None

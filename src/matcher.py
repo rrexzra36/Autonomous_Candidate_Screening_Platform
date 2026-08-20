@@ -3,6 +3,7 @@ Multi-Tier Candidate Matching & Scoring Engine
 - Layer 1: Hard Filter (Knockout Criteria)
 - Layer 2: Skill & Semantic Vector Similarity
 - Layer 3: Explainable AI (XAI) Reasoning & Justification Generator capturing full candidate profile
+- Multi-LLM Support: Google Gemini (gemini-1.5-flash, gemini-2.5-flash, gemini-1.5-pro) & OpenAI (gpt-4o-mini, gpt-4o, gpt-4-turbo)
 """
 
 from typing import Dict, Any, List
@@ -13,9 +14,23 @@ import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 class CandidateMatcherEngine:
-    def __init__(self, gemini_api_key: str = "", openai_api_key: str = "", *args, **kwargs):
-        self.gemini_api_key = gemini_api_key or kwargs.get("gemini_api_key", "")
-        self.openai_api_key = openai_api_key or kwargs.get("openai_api_key", "")
+    def __init__(
+        self,
+        api_key: str = "",
+        provider: str = "gemini",
+        model_name: str = "gemini-1.5-flash",
+        gemini_api_key: str = "",
+        openai_api_key: str = "",
+        *args,
+        **kwargs
+    ):
+        self.provider = (provider or kwargs.get("provider", "gemini")).lower()
+        self.model_name = model_name or kwargs.get("model_name", "gemini-1.5-flash")
+        
+        if self.provider == "openai":
+            self.api_key = api_key or openai_api_key or kwargs.get("openai_api_key", "")
+        else:
+            self.api_key = api_key or gemini_api_key or kwargs.get("gemini_api_key", "")
 
     def evaluate_candidate(self, anonymized_cv: Dict[str, Any], job_desc: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -93,10 +108,9 @@ class CandidateMatcherEngine:
 
     def _generate_reasoning(self, cv, job, matched_skills, jd_skills, total_exp, min_exp, knockout_reasons):
         """
-        Uses Modern Google GenAI SDK (google.genai) to generate hyper-personalized interview questions and reasoning.
-        Falls back to local heuristic capturing full candidate profile if API key is not provided or fails.
+        Uses Google Gemini or OpenAI LLM if API Key is available, otherwise uses deterministic logic.
         """
-        if self.gemini_api_key and self.gemini_api_key.strip():
+        if self.api_key and self.api_key.strip():
             prompt = f"""
 Anda adalah Senior Technical Recruiter dan AI Hiring Specialist tingkat lanjut.
 Tugas Anda adalah menganalisis profil kandidat ini secara akurat dan menyajikan analisis Keunggulan (Pros) berdasarkan profil penuh CV kandidat, Catatan Gap (Cons), dan Pertanyaan Wawancara yang dipersonalisasi.
@@ -118,7 +132,6 @@ Tanggung Jawab & Deskripsi:
 1. Pada "pros":
    - Sebutkan SELURUH Technical Skills yang dimiliki kandidat dari CV-nya.
    - Sebutkan SELURUH Soft Skills yang dimiliki kandidat dari CV-nya.
-   - Cantumkan riwayat pengalaman kerja/proyek/pencapaian nyata dari CV kandidat.
    - Cantumkan total durasi pengalaman dan pendidikan asli kandidat.
 2. Pada "cons":
    - Cantumkan Technical Skills atau Soft Skills yang diminta lowongan tapi BELUM tercantum di CV kandidat ini.
@@ -131,7 +144,6 @@ Tanggung Jawab & Deskripsi:
   "pros": [
     "Technical Skills yang dimiliki: [seluruh skill teknis dari CV]",
     "Soft Skills yang dimiliki: [seluruh soft skill dari CV]",
-    "[Ulasan riwayat pengalaman kerja/pencapaian proyek kandidat]",
     "[Durasi pengalaman dan latar belakang pendidikan]"
   ],
   "cons": [
@@ -147,33 +159,58 @@ Tanggung Jawab & Deskripsi:
 }}
 """
             text = None
-            
-            for model_name in ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro"]:
-                try:
-                    from google import genai
-                    client = genai.Client(api_key=self.gemini_api_key.strip())
-                    response = client.models.generate_content(
-                        model=model_name,
-                        contents=prompt
-                    )
-                    text = response.text
-                    if text:
-                        break
-                except Exception:
-                    continue
 
-            if not text:
-                for model_name in ["gemini-1.5-flash", "gemini-pro"]:
+            # 1. OpenAI Provider
+            if self.provider == "openai":
+                try:
+                    import openai
+                    client = openai.OpenAI(api_key=self.api_key.strip())
+                    response = client.chat.completions.create(
+                        model=self.model_name or "gpt-4o-mini",
+                        response_format={"type": "json_object"},
+                        messages=[
+                            {"role": "system", "content": "Anda adalah Senior Technical Recruiter yang mengeluarkan JSON murni."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.3
+                    )
+                    text = response.choices[0].message.content
+                except Exception:
+                    pass
+
+            # 2. Google Gemini Provider
+            else:
+                models_to_try = [self.model_name, "gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro"]
+                for model_name in models_to_try:
+                    if not model_name:
+                        continue
                     try:
-                        import google.generativeai as legacy_genai
-                        legacy_genai.configure(api_key=self.gemini_api_key.strip())
-                        model = legacy_genai.GenerativeModel(model_name)
-                        response = model.generate_content(prompt)
+                        from google import genai
+                        client = genai.Client(api_key=self.api_key.strip())
+                        response = client.models.generate_content(
+                            model=model_name,
+                            contents=prompt
+                        )
                         text = response.text
                         if text:
                             break
                     except Exception:
                         continue
+
+                if not text:
+                    for model_name in [self.model_name, "gemini-1.5-flash", "gemini-pro"]:
+                        if not model_name:
+                            continue
+                        try:
+                            import google.generativeai as legacy_genai
+                            legacy_genai.configure(api_key=self.api_key.strip())
+                            model = legacy_genai.GenerativeModel(model_name)
+                            response = model.generate_content(prompt)
+                            text = response.text
+                            if text:
+                                break
+                        except Exception:
+                            continue
 
             if text:
                 try:

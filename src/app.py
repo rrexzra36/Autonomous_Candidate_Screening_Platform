@@ -26,20 +26,58 @@ st.caption("AI-Powered Talent Acquisition Engine for Rapid Screening with Ethica
 
 st.markdown("---")
 
-# Sidebar Configuration
-st.sidebar.header("⚙️ Konfigurasi Sistem & AI")
+# ==========================================
+# SIDEBAR CONFIGURATION (AI PROVIDER & MODEL)
+# ==========================================
+st.sidebar.header("⚙️ Konfigurasi AI & Model")
 
-env_gemini_key = Config.GEMINI_API_KEY
-gemini_key_input = st.sidebar.text_input(
-    "Google Gemini API Key (Opsional):",
-    value=env_gemini_key,
-    type="password",
-    help="Masukkan API key Gemini untuk ekstraksi LLM tingkat lanjut. Jika dikosongkan, sistem otomatis menggunakan heuristic rule engine lokal."
+provider_choice = st.sidebar.selectbox(
+    "Pilih AI Provider:",
+    ["Google Gemini", "OpenAI"],
+    index=0
 )
 
-active_api_key = Config.get_active_gemini_key(gemini_key_input)
+if provider_choice == "Google Gemini":
+    selected_provider = "gemini"
+    model_options = ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro"]
+    default_model = Config.LLM_MODEL_NAME if Config.LLM_MODEL_NAME in model_options else "gemini-1.5-flash"
+    selected_model = st.sidebar.selectbox(
+        "Pilih Model Gemini:",
+        model_options,
+        index=model_options.index(default_model) if default_model in model_options else 0,
+        help="gemini-1.5-flash: Cepat & hemat kuota. gemini-1.5-pro: Penalaran mendalam."
+    )
+    
+    env_gemini_key = Config.GEMINI_API_KEY
+    api_key_input = st.sidebar.text_input(
+        "Google Gemini API Key:",
+        value=env_gemini_key,
+        type="password",
+        help="Dapatkan Gemini API Key gratis di https://aistudio.google.com/"
+    )
+    active_api_key = Config.get_active_gemini_key(api_key_input)
+
+else:
+    selected_provider = "openai"
+    model_options = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"]
+    selected_model = st.sidebar.selectbox(
+        "Pilih Model OpenAI:",
+        model_options,
+        index=0,
+        help="gpt-4o-mini: Cepat & efisien biaya. gpt-4o: Flagship reasoning."
+    )
+    
+    env_openai_key = Config.OPENAI_API_KEY
+    api_key_input = st.sidebar.text_input(
+        "OpenAI API Key:",
+        value=env_openai_key,
+        type="password",
+        help="Dapatkan OpenAI API Key di https://platform.openai.com/api-keys"
+    )
+    active_api_key = Config.get_active_openai_key(api_key_input)
+
 if active_api_key:
-    st.sidebar.success("✨ Gemini Generative AI: Terhubung (Pertanyaan Wawancara Personal & Deep Reasoning Aktif)")
+    st.sidebar.success(f"✨ {provider_choice} ({selected_model}): Terhubung")
 else:
     st.sidebar.info("⚡ Mode: Local Intelligent Rule Engine (Offline)")
 
@@ -60,10 +98,15 @@ uploaded_jd_pdf = st.file_uploader(
 active_job = None
 
 if uploaded_jd_pdf is not None:
-    with st.spinner("🤖 AI sedang membaca & memvalidasi PDF Job Description..."):
+    with st.spinner(f"🤖 AI ({provider_choice}) sedang membaca & memvalidasi PDF Job Description..."):
         try:
             jd_text = DocumentParser.extract_text_from_pdf(uploaded_jd_pdf.getvalue())
-            active_job = DocumentParser.parse_job_description(jd_text, api_key=active_api_key)
+            active_job = DocumentParser.parse_job_description(
+                jd_text,
+                api_key=active_api_key,
+                provider=selected_provider,
+                model_name=selected_model
+            )
             st.success(f"✅ Berhasil mengekstrak kriteria lowongan: **{active_job['title']}**")
         except EmptyPDFError as e:
             st.error(f"❌ **File PDF Tidak Dapat Dibaca / Kosong:** {str(e)}")
@@ -127,11 +170,17 @@ candidates_to_process = []
 if uploaded_cv_files:
     st.write(f"📁 **{len(uploaded_cv_files)} berkas CV diunggah untuk diproses.**")
     invalid_cv_count = 0
-    with st.spinner("🤖 AI sedang memvalidasi dan mengekstrak seluruh PDF CV..."):
+    with st.spinner(f"🤖 AI ({provider_choice}) sedang memvalidasi dan mengekstrak seluruh PDF CV..."):
         for cv_file in uploaded_cv_files:
             try:
                 raw_text = DocumentParser.extract_text_from_pdf(cv_file.getvalue())
-                parsed_cv = DocumentParser.parse_candidate_cv(raw_text, filename=cv_file.name, api_key=active_api_key)
+                parsed_cv = DocumentParser.parse_candidate_cv(
+                    raw_text,
+                    filename=cv_file.name,
+                    api_key=active_api_key,
+                    provider=selected_provider,
+                    model_name=selected_model
+                )
                 candidates_to_process.append(parsed_cv)
             except EmptyPDFError:
                 st.warning(f"⚠️ **File Dilewati [{cv_file.name}]:** Berkas kosong atau scan gambar tanpa teks digital.")
@@ -156,7 +205,11 @@ st.markdown("---")
 # STEP 3: MATCHING & DASHBOARD RESULTS
 # ==========================================
 if candidates_to_process and active_job:
-    matcher = CandidateMatcherEngine(gemini_api_key=active_api_key)
+    matcher = CandidateMatcherEngine(
+        api_key=active_api_key,
+        provider=selected_provider,
+        model_name=selected_model
+    )
     evaluated_results = []
 
     for raw_cv in candidates_to_process:
@@ -251,4 +304,4 @@ elif not active_job:
 elif not candidates_to_process:
     st.info("💡 Dokumen lowongan siap. Silakan unggah berkas CV kandidat pada bagian (2) untuk menjalankan evaluasi.")
 
-st.caption("Autonomous Candidate Screening Platform v1.4.0 | AI Specialist Technical Assessment")
+st.caption("Autonomous Candidate Screening Platform v1.5.0 | AI Specialist Technical Assessment")
