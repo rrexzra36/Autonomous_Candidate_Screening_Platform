@@ -332,15 +332,11 @@ if "eval_results_store" not in st.session_state:
 if "drive_cv_files" not in st.session_state:
     st.session_state["drive_cv_files"] = []
 
-cv_source_mode = st.radio(
-    "Pilih Metode Pengumpulan CV:",
-    ["📤 Upload Berkas PDF Manual", "📁 Impor dari Google Drive Folder"],
-    horizontal=True
-)
+tab_upload, tab_drive = st.tabs(["📤 Upload Berkas PDF Manual", "📁 Impor dari Google Drive Folder"])
 
 raw_cv_items = []
 
-if cv_source_mode == "📤 Upload Berkas PDF Manual":
+with tab_upload:
     col_up_title, col_clear_btn = st.columns([3, 1])
     with col_up_title:
         st.markdown("**Unggah Dokumen CV Kandidat (Multiple PDF):**")
@@ -361,20 +357,21 @@ if cv_source_mode == "📤 Upload Berkas PDF Manual":
     if uploaded_cv_files:
         for f in uploaded_cv_files:
             raw_cv_items.append({"name": f.name, "bytes": f.getvalue()})
-    else:
-        st.info("📤 Silakan upload satu atau beberapa berkas CV kandidat dalam format PDF.")
 
-else:
+with tab_drive:
+    st.markdown("**Impor Berkas CV Otomatis dari Folder Google Drive:**")
+    st.caption("💡 Pastikan izin akses folder telah diatur ke **'Anyone with the link can view'** (Siapa saja yang memiliki link dapat melihat).")
+    
     col_dr_in, col_dr_btn = st.columns([3, 1])
     with col_dr_in:
         drive_folder_url = st.text_input(
             "Tautan (URL) Folder Google Drive:",
             placeholder="Contoh: https://drive.google.com/drive/folders/1ABCxyz123...",
-            help="Pastikan izin akses folder telah diatur ke 'Anyone with the link can view' (Siapa saja yang memiliki link)."
+            help="Salin dan tempelkan link folder Google Drive Anda di sini.",
+            key="drive_folder_input"
         )
     with col_dr_btn:
-        st.write("")
-        st.write("")
+        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
         if st.button("📥 Impor dari Drive", type="primary", use_container_width=True):
             if drive_folder_url and drive_folder_url.strip():
                 with st.spinner("⏳ Menghubungi Google Drive & mengunduh berkas PDF..."):
@@ -392,7 +389,7 @@ else:
         d_files = st.session_state["drive_cv_files"]
         col_dt, col_dc = st.columns([3, 1])
         with col_dt:
-            st.write(f"📁 **{len(d_files)} berkas CV diimpor dari Google Drive.**")
+            st.write(f"📁 **{len(d_files)} berkas CV aktif dari Google Drive.**")
         with col_dc:
             if st.button("🗑️ Reset Drive Files", help="Hapus berkas yang diimpor dari Google Drive."):
                 st.session_state["drive_cv_files"] = []
@@ -401,8 +398,6 @@ else:
         
         for f in d_files:
             raw_cv_items.append({"name": f["name"], "bytes": f["bytes"]})
-    else:
-        st.info("💡 Masukkan tautan folder Google Drive publik yang berisi berkas PDF CV, lalu klik '📥 Impor dari Drive'.")
 
 candidates_to_process = []
 
@@ -446,8 +441,6 @@ if raw_cv_items:
         st.success(f"✅ Berhasil memproses {len(candidates_to_process)} CV kandidat yang valid.")
     elif invalid_cv_count > 0:
         st.error("❌ Tidak ada CV valid yang dapat diproses. Silakan periksa kembali berkas Anda.")
-else:
-    st.info("📤 Silakan upload satu atau beberapa berkas CV kandidat dalam format PDF.")
 
 st.markdown("---")
 
