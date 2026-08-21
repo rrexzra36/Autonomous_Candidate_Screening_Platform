@@ -899,11 +899,11 @@ else:
 
                     # Pass Threshold Line
                     fig_stacked.add_hline(
-                        y=score_threshold,
+                        y=threshold_score,
                         line_dash="dash",
                         line_color="#e74c3c",
                         line_width=2,
-                        annotation_text=f"Pass Threshold ({score_threshold}%)",
+                        annotation_text=f"Pass Threshold ({threshold_score}%)",
                         annotation_position="top right"
                     )
 
@@ -968,11 +968,11 @@ else:
                     ))
 
                     fig_grouped.add_hline(
-                        y=score_threshold,
+                        y=threshold_score,
                         line_dash="dash",
                         line_color="#e74c3c",
                         line_width=2,
-                        annotation_text=f"Pass Threshold ({score_threshold}%)",
+                        annotation_text=f"Pass Threshold ({threshold_score}%)",
                         annotation_position="top right"
                     )
 
