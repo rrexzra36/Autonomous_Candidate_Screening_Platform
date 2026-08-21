@@ -810,7 +810,17 @@ else:
 
             st.markdown("---")
 
-            # --- 2. Plotly Grouped Multi-Criteria Score Breakdown Chart ---
+            # --- 2. Chart View Mode Selector ---
+            chart_view = st.radio(
+                "Select Analytics Visualization Mode:",
+                [
+                    "📊 Stacked Composite Contribution (0 - 100%)",
+                    "📈 Grouped Multi-Metric Comparison (0 - 100%)",
+                    "🕸️ Competency Radar Analysis (0 - 100%)"
+                ],
+                horizontal=True
+            )
+
             try:
                 import plotly.graph_objects as go
                 
@@ -819,114 +829,209 @@ else:
                 skill_scores = [c["score_breakdown"].get("skill_match", 0.0) for c in evaluated_results]
                 exp_scores = [c["score_breakdown"].get("experience_depth", 0.0) for c in evaluated_results]
                 edu_scores = [c["score_breakdown"].get("education_level", 0.0) for c in evaluated_results]
+                statuses = [c["status"] for c in evaluated_results]
 
-                fig = go.Figure()
+                w_s = active_weights.get("skill", 50.0) / 100.0
+                w_e = active_weights.get("experience", 30.0) / 100.0
+                w_ed = active_weights.get("education", 20.0) / 100.0
 
-                fig.add_trace(go.Bar(
-                    name="Overall Match Score",
-                    x=candidates_labels,
-                    y=overall_scores,
-                    text=[f"{v}%" for v in overall_scores],
-                    textposition="auto",
-                    marker_color="#2ecc71",
-                    hovertemplate="<b>%{x}</b><br>Overall Score: %{y:.1f}%<extra></extra>"
-                ))
-
-                fig.add_trace(go.Bar(
-                    name="Skill Compatibility",
-                    x=candidates_labels,
-                    y=skill_scores,
-                    text=[f"{v}%" for v in skill_scores],
-                    textposition="auto",
-                    marker_color="#3498db",
-                    hovertemplate="<b>%{x}</b><br>Skill Score: %{y:.1f}%<extra></extra>"
-                ))
-
-                fig.add_trace(go.Bar(
-                    name="Experience Domain Relevance",
-                    x=candidates_labels,
-                    y=exp_scores,
-                    text=[f"{v}%" for v in exp_scores],
-                    textposition="auto",
-                    marker_color="#f39c12",
-                    hovertemplate="<b>%{x}</b><br>Experience Score: %{y:.1f}%<extra></extra>"
-                ))
-
-                fig.add_trace(go.Bar(
-                    name="Education & Major Relevance",
-                    x=candidates_labels,
-                    y=edu_scores,
-                    text=[f"{v}%" for v in edu_scores],
-                    textposition="auto",
-                    marker_color="#9b59b6",
-                    hovertemplate="<b>%{x}</b><br>Education Score: %{y:.1f}%<extra></extra>"
-                ))
-
-                # Pass Threshold Reference Line
-                fig.add_hline(
-                    y=score_threshold,
-                    line_dash="dash",
-                    line_color="#e74c3c",
-                    line_width=2,
-                    annotation_text=f"Pass Threshold ({score_threshold}%)",
-                    annotation_position="top right"
-                )
-
-                fig.update_layout(
-                    title="<b>Candidate Multi-Criteria Score Breakdown & Comparison (Scale: 0 - 100%)</b>",
-                    barmode="group",
-                    yaxis=dict(
-                        title="Score Scale (%)",
-                        range=[0, 105],
-                        tickvals=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-                        gridcolor="#e9ecef"
-                    ),
-                    xaxis=dict(title="Candidates"),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                    height=500,
-                    margin=dict(l=40, r=40, t=80, b=40)
-                )
-
-                st.plotly_chart(fig, use_container_width=True)
-
-                # --- 3. Competency Radar Chart (Spider Chart) for Candidates ---
-                if len(evaluated_results) >= 2:
-                    st.markdown("#### 🕸️ Competency Radar Analysis (Scale: 0 - 100%)")
-                    st.caption("Perbandingan dimensi kompetensi kandidat (Skill, Pengalaman Relevan, Pendidikan) dalam visualisasi Radar Chart.")
-                    
-                    categories = ["Skill Compatibility", "Experience Relevance", "Education & Major", "Overall Fit"]
-                    fig_radar = go.Figure()
-                    
-                    for c in evaluated_results[:5]:  # Top 5 candidates
-                        lbl = c["candidate_alias"] if enable_blind_cv else c["raw_cv"]["personal_info"].get("full_name", c["cv_id"])
-                        r_vals = [
-                            c["score_breakdown"].get("skill_match", 0.0),
-                            c["score_breakdown"].get("experience_depth", 0.0),
-                            c["score_breakdown"].get("education_level", 0.0),
-                            c["overall_score"]
-                        ]
-                        r_vals.append(r_vals[0])  # close the polygon
-                        
-                        fig_radar.add_trace(go.Scatterpolar(
-                            r=r_vals,
-                            theta=categories + [categories[0]],
-                            fill='toself',
-                            name=lbl
-                        ))
-                        
-                    fig_radar.update_layout(
-                        polar=dict(
-                            radialaxis=dict(
-                                visible=True,
-                                range=[0, 100],
-                                tickvals=[0, 25, 50, 75, 100]
-                            )
-                        ),
-                        showlegend=True,
-                        height=450,
-                        margin=dict(l=40, r=40, t=40, b=40)
+                if chart_view == "📊 Stacked Composite Contribution (0 - 100%)":
+                    st.info(
+                        f"💡 **Penjelasan Grafik Stacked Bar (Skala 0 - 100%):** Tiap batang bar merepresentasikan total **Match Score** kandidat yang terbentuk dari akumulasi 3 komponen terbobot: "
+                        f"**Skill Compatibility** ({int(w_s*100)}% bobot), **Experience Relevance** ({int(w_e*100)}% bobot), dan **Education & Major** ({int(w_ed*100)}% bobot)."
                     )
-                    st.plotly_chart(fig_radar, use_container_width=True)
+
+                    skill_pts, exp_pts, edu_pts = [], [], []
+                    for i in range(len(evaluated_results)):
+                        raw_comp_sum = (skill_scores[i] * w_s) + (exp_scores[i] * w_e) + (edu_scores[i] * w_ed)
+                        # Account for penalty scaling if present
+                        factor = (overall_scores[i] / raw_comp_sum) if raw_comp_sum > 0 and overall_scores[i] != raw_comp_sum else 1.0
+                        skill_pts.append(round(skill_scores[i] * w_s * factor, 1))
+                        exp_pts.append(round(exp_scores[i] * w_e * factor, 1))
+                        edu_pts.append(round(edu_scores[i] * w_ed * factor, 1))
+
+                    fig_stacked = go.Figure()
+
+                    fig_stacked.add_trace(go.Bar(
+                        name=f"Skill Match Contribution ({int(w_s*100)}% wt)",
+                        x=candidates_labels,
+                        y=skill_pts,
+                        text=[f"+{v:.1f}%" if v >= 4.0 else "" for v in skill_pts],
+                        textposition="inside",
+                        marker_color="#3498db",
+                        customdata=skill_scores,
+                        hovertemplate="<b>%{x}</b><br>Skill Match Component:<br>• Raw Score: %{customdata:.1f}%<br>• Weighted Contribution: <b>+%{y:.1f}% pts</b><extra></extra>"
+                    ))
+
+                    fig_stacked.add_trace(go.Bar(
+                        name=f"Experience Relevance ({int(w_e*100)}% wt)",
+                        x=candidates_labels,
+                        y=exp_pts,
+                        text=[f"+{v:.1f}%" if v >= 4.0 else "" for v in exp_pts],
+                        textposition="inside",
+                        marker_color="#f39c12",
+                        customdata=exp_scores,
+                        hovertemplate="<b>%{x}</b><br>Experience Component:<br>• Raw Score: %{customdata:.1f}%<br>• Weighted Contribution: <b>+%{y:.1f}% pts</b><extra></extra>"
+                    ))
+
+                    fig_stacked.add_trace(go.Bar(
+                        name=f"Education & Major ({int(w_ed*100)}% wt)",
+                        x=candidates_labels,
+                        y=edu_pts,
+                        text=[f"+{v:.1f}%" if v >= 4.0 else "" for v in edu_pts],
+                        textposition="inside",
+                        marker_color="#9b59b6",
+                        customdata=edu_scores,
+                        hovertemplate="<b>%{x}</b><br>Education Component:<br>• Raw Score: %{customdata:.1f}%<br>• Weighted Contribution: <b>+%{y:.1f}% pts</b><extra></extra>"
+                    ))
+
+                    # Top of bar annotations with Total Match Score
+                    for i, (cand, total_val, st_lbl) in enumerate(zip(candidates_labels, overall_scores, statuses)):
+                        color_annot = "#27ae60" if st_lbl == "Pass" else ("#e67e22" if st_lbl == "Considered" else "#c0392b")
+                        badge_icon = "🟢" if st_lbl == "Pass" else ("🟡" if st_lbl == "Considered" else "🔴")
+                        fig_stacked.add_annotation(
+                            x=cand,
+                            y=total_val + 3.0,
+                            text=f"<b>{total_val:.1f}%</b> {badge_icon}",
+                            showarrow=False,
+                            font=dict(size=12, color=color_annot)
+                        )
+
+                    # Pass Threshold Line
+                    fig_stacked.add_hline(
+                        y=score_threshold,
+                        line_dash="dash",
+                        line_color="#e74c3c",
+                        line_width=2,
+                        annotation_text=f"Pass Threshold ({score_threshold}%)",
+                        annotation_position="top right"
+                    )
+
+                    fig_stacked.update_layout(
+                        title="<b>Stacked Composite Match Score Breakdown (Scale: 0 - 100%)</b>",
+                        barmode="stack",
+                        yaxis=dict(
+                            title="Total Match Score (%)",
+                            range=[0, 110],
+                            tickvals=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+                            gridcolor="#e9ecef"
+                        ),
+                        xaxis=dict(title="Candidate Profiles"),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                        height=520,
+                        margin=dict(l=40, r=40, t=90, b=40)
+                    )
+
+                    st.plotly_chart(fig_stacked, use_container_width=True)
+
+                elif chart_view == "📈 Grouped Multi-Metric Comparison (0 - 100%)":
+                    fig_grouped = go.Figure()
+
+                    fig_grouped.add_trace(go.Bar(
+                        name="Overall Match Score",
+                        x=candidates_labels,
+                        y=overall_scores,
+                        text=[f"{v}%" for v in overall_scores],
+                        textposition="auto",
+                        marker_color="#2ecc71",
+                        hovertemplate="<b>%{x}</b><br>Overall Score: %{y:.1f}%<extra></extra>"
+                    ))
+
+                    fig_grouped.add_trace(go.Bar(
+                        name="Skill Compatibility",
+                        x=candidates_labels,
+                        y=skill_scores,
+                        text=[f"{v}%" for v in skill_scores],
+                        textposition="auto",
+                        marker_color="#3498db",
+                        hovertemplate="<b>%{x}</b><br>Skill Score: %{y:.1f}%<extra></extra>"
+                    ))
+
+                    fig_grouped.add_trace(go.Bar(
+                        name="Experience Domain Relevance",
+                        x=candidates_labels,
+                        y=exp_scores,
+                        text=[f"{v}%" for v in exp_scores],
+                        textposition="auto",
+                        marker_color="#f39c12",
+                        hovertemplate="<b>%{x}</b><br>Experience Score: %{y:.1f}%<extra></extra>"
+                    ))
+
+                    fig_grouped.add_trace(go.Bar(
+                        name="Education & Major Relevance",
+                        x=candidates_labels,
+                        y=edu_scores,
+                        text=[f"{v}%" for v in edu_scores],
+                        textposition="auto",
+                        marker_color="#9b59b6",
+                        hovertemplate="<b>%{x}</b><br>Education Score: %{y:.1f}%<extra></extra>"
+                    ))
+
+                    fig_grouped.add_hline(
+                        y=score_threshold,
+                        line_dash="dash",
+                        line_color="#e74c3c",
+                        line_width=2,
+                        annotation_text=f"Pass Threshold ({score_threshold}%)",
+                        annotation_position="top right"
+                    )
+
+                    fig_grouped.update_layout(
+                        title="<b>Candidate Multi-Criteria Score Breakdown & Comparison (Scale: 0 - 100%)</b>",
+                        barmode="group",
+                        yaxis=dict(
+                            title="Score Scale (%)",
+                            range=[0, 108],
+                            tickvals=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+                            gridcolor="#e9ecef"
+                        ),
+                        xaxis=dict(title="Candidates"),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                        height=520,
+                        margin=dict(l=40, r=40, t=90, b=40)
+                    )
+
+                    st.plotly_chart(fig_grouped, use_container_width=True)
+
+                elif chart_view == "🕸️ Competency Radar Analysis (0 - 100%)":
+                    if len(evaluated_results) >= 2:
+                        st.caption("Perbandingan dimensi kompetensi kandidat (Skill, Pengalaman Relevan, Pendidikan) dalam visualisasi Radar Chart (Skala 0 - 100%).")
+                        
+                        categories = ["Skill Compatibility", "Experience Relevance", "Education & Major", "Overall Fit"]
+                        fig_radar = go.Figure()
+                        
+                        for c in evaluated_results[:5]:  # Top 5 candidates
+                            lbl = c["candidate_alias"] if enable_blind_cv else c["raw_cv"]["personal_info"].get("full_name", c["cv_id"])
+                            r_vals = [
+                                c["score_breakdown"].get("skill_match", 0.0),
+                                c["score_breakdown"].get("experience_depth", 0.0),
+                                c["score_breakdown"].get("education_level", 0.0),
+                                c["overall_score"]
+                            ]
+                            r_vals.append(r_vals[0])  # close the polygon
+                            
+                            fig_radar.add_trace(go.Scatterpolar(
+                                r=r_vals,
+                                theta=categories + [categories[0]],
+                                fill='toself',
+                                name=lbl
+                            ))
+                            
+                        fig_radar.update_layout(
+                            polar=dict(
+                                radialaxis=dict(
+                                    visible=True,
+                                    range=[0, 100],
+                                    tickvals=[0, 25, 50, 75, 100]
+                                )
+                            ),
+                            showlegend=True,
+                            height=480,
+                            margin=dict(l=40, r=40, t=40, b=40)
+                        )
+                        st.plotly_chart(fig_radar, use_container_width=True)
+                    else:
+                        st.info("ℹ️ Minimal dibutuhkan 2 kandidat untuk visualisasi perbandingan Radar Chart.")
 
             except Exception:
                 # Fallback to dataframe bar chart if Plotly encounters issue
