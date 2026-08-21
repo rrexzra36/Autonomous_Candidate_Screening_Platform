@@ -831,9 +831,9 @@ else:
                 edu_scores = [c["score_breakdown"].get("education_level", 0.0) for c in evaluated_results]
                 statuses = [c["status"] for c in evaluated_results]
 
-                w_s = active_weights.get("skill", 50.0) / 100.0
-                w_e = active_weights.get("experience", 30.0) / 100.0
-                w_ed = active_weights.get("education", 20.0) / 100.0
+                w_s = custom_weights.get("skill", 50.0) / 100.0
+                w_e = custom_weights.get("experience", 30.0) / 100.0
+                w_ed = custom_weights.get("education", 20.0) / 100.0
 
                 if chart_view == "📊 Stacked Composite Contribution (0 - 100%)":
                     st.info(
@@ -1033,8 +1033,8 @@ else:
                     else:
                         st.info("ℹ️ Minimal dibutuhkan 2 kandidat untuk visualisasi perbandingan Radar Chart.")
 
-            except Exception:
-                # Fallback to dataframe bar chart if Plotly encounters issue
+            except Exception as e:
+                st.warning(f"ℹ️ Plotly rendering notice: {e}. Displaying standard bar chart fallback:")
                 df_plot = pd.DataFrame([
                     {
                         "Candidate": c["candidate_alias"] if enable_blind_cv else c["raw_cv"]["personal_info"].get("full_name", c["cv_id"]),
