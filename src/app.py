@@ -239,7 +239,7 @@ with tab_jd_drive:
     st.markdown("**Import Job Description from Google Drive:**")
     col_jd_cap, col_jd_dr_reset = st.columns([3, 1], vertical_alignment="center")
     with col_jd_cap:
-        st.caption("💡 Ensure access is set to **'Anyone with the link can view'**.")
+        st.markdown("💡 Ensure access is set to **'Anyone with the link can view'**.")
     with col_jd_dr_reset:
         if st.button("Reset Drive File", key="btn_reset_jd_drive", use_container_width=True, help="Click to reset the Job Description imported from Google Drive."):
             st.session_state["drive_jd_file"] = None
@@ -426,7 +426,7 @@ with tab_drive:
     st.markdown("**Import Candidate CVs from Google Drive:**")
     col_dr_cap, col_dr_reset = st.columns([3, 1], vertical_alignment="center")
     with col_dr_cap:
-        st.caption("💡 Ensure access is set to **'Anyone with the link can view'**.")
+        st.markdown("💡 Ensure access is set to **'Anyone with the link can view'**.")
     with col_dr_reset:
         if st.button("Reset Drive Files", key="btn_reset_cv_drive", use_container_width=True, help="Click to clear and reset all files imported from Google Drive."):
             st.session_state["drive_cv_files"] = []
@@ -459,6 +459,27 @@ with tab_drive:
                 st.warning("⚠️ Please enter a Google Drive link first.")
 
     if st.session_state.get("drive_cv_files"):
+        st.markdown(f"**Imported Files from Google Drive ({len(st.session_state['drive_cv_files'])}):**")
+        with st.container(border=True):
+            file_to_remove = None
+            for idx, f in enumerate(st.session_state["drive_cv_files"]):
+                f_size_kb = len(f["bytes"]) / 1024
+                size_str = f"{f_size_kb:.1f} KB" if f_size_kb < 1024 else f"{f_size_kb/1024:.2f} MB"
+                
+                col_fname, col_fsize, col_fdel = st.columns([6, 2, 1], vertical_alignment="center")
+                with col_fname:
+                    st.markdown(f"**{f['name']}**")
+                with col_fsize:
+                    st.caption(size_str)
+                with col_fdel:
+                    if st.button("✖", key=f"del_dr_cv_{idx}_{f['name']}", help=f"Remove {f['name']}"):
+                        file_to_remove = idx
+
+            if file_to_remove is not None:
+                st.session_state["drive_cv_files"].pop(file_to_remove)
+                st.session_state["executed_config_sig"] = ""
+                st.rerun()
+
         for f in st.session_state["drive_cv_files"]:
             raw_cv_items.append({"name": f["name"], "bytes": f["bytes"]})
 
