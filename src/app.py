@@ -1058,17 +1058,15 @@ else:
 
         with tab4:
             st.subheader("📑 Candidate Evaluation Summary Table")
-            st.caption("Tabel ringkasan menyeluruh dari hasil penapisan kandidat yang dapat difilter dan diekspor ke dalam format CSV maupun Excel (.xlsx).")
+            st.caption("Tabel ringkasan menyeluruh hasil penapisan kandidat yang dapat difilter dan diekspor ke format CSV maupun Excel (.xlsx).")
 
             # Construct Summary DataFrame
             summary_rows = []
             for rank, c in enumerate(evaluated_results, start=1):
                 p_info = c.get("raw_cv", {}).get("personal_info", {})
                 full_name = p_info.get("full_name") or c.get("candidate_alias") or c.get("cv_id", f"Candidate #{rank}")
-                alias = c.get("candidate_alias", f"CANDIDATE-{rank:02d}")
                 email = p_info.get("email", "-")
                 phone = p_info.get("phone", "-")
-                domicile = p_info.get("address", "-")
                 
                 score_bd = c.get("score_breakdown", {})
                 overall_s = c.get("overall_score", 0.0)
@@ -1076,19 +1074,19 @@ else:
                 exp_s = score_bd.get("experience_depth", 0.0)
                 edu_s = score_bd.get("education", score_bd.get("education_tier", 0.0))
                 
+                reason_text = c.get("justification", {}).get("recommendation_reason", "-")
                 status_raw = c.get("status", "Rejected")
                 
                 summary_rows.append({
                     "Rank": f"#{rank}",
                     "Candidate Name": full_name,
-                    "Candidate Alias": alias,
                     "Email": email,
                     "Phone": phone,
-                    "Domicile": domicile,
                     "Overall Match Score (%)": overall_s,
                     "Skill Match (%)": skill_s,
                     "Experience Depth (%)": exp_s,
                     "Education (%)": edu_s,
+                    "Reason": reason_text,
                     "Status": status_raw
                 })
 
@@ -1139,28 +1137,40 @@ else:
 
             st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
             
-            # Interactive Streamlit Dataframe with Progress Bars and Clean Format
+            # Status Highlighter Function (Pass: Green, Considered: Yellow, Rejected: Red)
+            def highlight_status_cell(val):
+                if val == "Pass":
+                    return "background-color: #dcfce7; color: #15803d; font-weight: bold; text-align: center;"
+                elif val == "Considered":
+                    return "background-color: #fef9c3; color: #a16207; font-weight: bold; text-align: center;"
+                elif val == "Rejected":
+                    return "background-color: #fee2e2; color: #b91c1c; font-weight: bold; text-align: center;"
+                return ""
+
+            styled_summary = df_filtered.style.map(
+                highlight_status_cell, subset=["Status"]
+            ).format({
+                "Overall Match Score (%)": "{:.1f}%",
+                "Skill Match (%)": "{:.1f}%",
+                "Experience Depth (%)": "{:.1f}%",
+                "Education (%)": "{:.1f}%"
+            })
+
+            # Interactive Streamlit Dataframe with Clean Text & Styled Cells
             st.dataframe(
-                df_filtered,
+                styled_summary,
                 use_container_width=True,
                 hide_index=True,
                 column_config={
                     "Rank": st.column_config.TextColumn("Rank", width="small"),
                     "Candidate Name": st.column_config.TextColumn("Candidate Name", width="medium"),
-                    "Candidate Alias": st.column_config.TextColumn("Candidate Alias", width="small"),
                     "Email": st.column_config.TextColumn("Email", width="medium"),
                     "Phone": st.column_config.TextColumn("Phone", width="small"),
-                    "Domicile": st.column_config.TextColumn("Domicile", width="small"),
-                    "Overall Match Score (%)": st.column_config.ProgressColumn(
-                        "Overall Match Score (%)",
-                        format="%.1f%%",
-                        min_value=0,
-                        max_value=100,
-                        width="medium"
-                    ),
-                    "Skill Match (%)": st.column_config.NumberColumn("Skill Match (%)", format="%.1f%%"),
-                    "Experience Depth (%)": st.column_config.NumberColumn("Experience Depth (%)", format="%.1f%%"),
-                    "Education (%)": st.column_config.NumberColumn("Education (%)", format="%.1f%%"),
+                    "Overall Match Score (%)": st.column_config.TextColumn("Overall Match Score (%)", width="small"),
+                    "Skill Match (%)": st.column_config.TextColumn("Skill Match (%)", width="small"),
+                    "Experience Depth (%)": st.column_config.TextColumn("Experience Depth (%)", width="small"),
+                    "Education (%)": st.column_config.TextColumn("Education (%)", width="small"),
+                    "Reason": st.column_config.TextColumn("Reason", width="large"),
                     "Status": st.column_config.TextColumn("Status", width="small")
                 }
             )
