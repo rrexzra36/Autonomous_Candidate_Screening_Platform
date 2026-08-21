@@ -211,7 +211,19 @@ tab_jd_pdf, tab_jd_drive, tab_jd_text = st.tabs([
 raw_jd_source = None
 
 with tab_jd_pdf:
-    st.markdown("**Upload Job Description PDF Document:**")
+    col_jd_title, col_jd_reset, col_jd_prev = st.columns([2, 1, 1], vertical_alignment="center")
+    with col_jd_title:
+        st.markdown("**Upload Job Description PDF Document:**")
+    with col_jd_reset:
+        if st.button("Reset PDF", key="btn_reset_jd_pdf", use_container_width=True, help="Click to reset the uploaded Job Description PDF."):
+            st.session_state["jd_uploader_key"] += 1
+            st.session_state["drive_jd_file"] = None
+            st.session_state["executed_config_sig"] = ""
+            st.session_state["parsed_jd_store"].clear()
+            st.session_state["current_active_job"] = None
+            st.rerun()
+    with col_jd_prev:
+        trigger_preview_pdf = st.button("Preview Job Criteria", key="btn_prev_jd_pdf", type="primary", use_container_width=True, help="Extract & preview the job position title, requirements, education, and skills.")
 
     uploaded_jd_pdf = st.file_uploader(
         "Upload Job Description PDF Document:",
@@ -226,10 +238,35 @@ with tab_jd_pdf:
             "bytes": uploaded_jd_pdf.getvalue()
         }
         st.success(f"Job Description PDF ready: **{uploaded_jd_pdf.name}**")
+        
+        if trigger_preview_pdf:
+            jd_bytes = uploaded_jd_pdf.getvalue()
+            jd_cache_key = f"pdf_{uploaded_jd_pdf.name}_{len(jd_bytes)}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+            if jd_cache_key in st.session_state["parsed_jd_store"]:
+                active_job = st.session_state["parsed_jd_store"][jd_cache_key]
+                st.session_state["current_active_job"] = active_job
+                st.rerun()
+            else:
+                with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is analyzing Job Description criteria..."):
+                    try:
+                        jd_text = DocumentParser.extract_text_from_pdf(jd_bytes)
+                        active_job = DocumentParser.parse_job_description(
+                            jd_text,
+                            api_key=effective_api_key,
+                            provider=selected_provider,
+                            model_name=effective_model
+                        )
+                        st.session_state["parsed_jd_store"][jd_cache_key] = active_job
+                        st.session_state["current_active_job"] = active_job
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Failed to extract Job Criteria: {str(e)}")
+    elif trigger_preview_pdf:
+        st.warning("⚠️ Please upload a Job Description PDF file first.")
 
 with tab_jd_drive:
     st.markdown("**Import Job Description from Google Drive:**")
-    col_jd_cap, col_jd_dr_reset = st.columns([3, 1], vertical_alignment="center")
+    col_jd_cap, col_jd_dr_reset, col_jd_dr_prev = st.columns([2, 1, 1], vertical_alignment="center")
     with col_jd_cap:
         st.markdown("💡 Ensure access is set to **'Anyone with the link can view'**.")
     with col_jd_dr_reset:
@@ -239,6 +276,8 @@ with tab_jd_drive:
             st.session_state["parsed_jd_store"].clear()
             st.session_state["current_active_job"] = None
             st.rerun()
+    with col_jd_dr_prev:
+        trigger_preview_dr = st.button("Preview Job Criteria", key="btn_prev_jd_dr", type="primary", use_container_width=True, help="Extract & preview the job position title, requirements, education, and skills.")
     
     col_jd_dr_in, col_jd_dr_btn = st.columns([3, 1], vertical_alignment="bottom")
     with col_jd_dr_in:
@@ -275,9 +314,33 @@ with tab_jd_drive:
                 "bytes": jd_f["bytes"]
             }
             st.success(f"Job Description from Google Drive ready: **{jd_f['name']}**")
+            
+        if trigger_preview_dr:
+            jd_cache_key = f"drive_{jd_f['name']}_{len(jd_f['bytes'])}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+            if jd_cache_key in st.session_state["parsed_jd_store"]:
+                active_job = st.session_state["parsed_jd_store"][jd_cache_key]
+                st.session_state["current_active_job"] = active_job
+                st.rerun()
+            else:
+                with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is analyzing Job Description criteria..."):
+                    try:
+                        jd_text = DocumentParser.extract_text_from_pdf(jd_f["bytes"])
+                        active_job = DocumentParser.parse_job_description(
+                            jd_text,
+                            api_key=effective_api_key,
+                            provider=selected_provider,
+                            model_name=effective_model
+                        )
+                        st.session_state["parsed_jd_store"][jd_cache_key] = active_job
+                        st.session_state["current_active_job"] = active_job
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Failed to extract Job Criteria: {str(e)}")
+    elif trigger_preview_dr:
+        st.warning("⚠️ Please import a Job Description from Google Drive first.")
 
 with tab_jd_text:
-    col_jd_txt_title, col_jd_txt_reset = st.columns([3, 1], vertical_alignment="center")
+    col_jd_txt_title, col_jd_txt_reset, col_jd_txt_prev = st.columns([2, 1, 1], vertical_alignment="center")
     with col_jd_txt_title:
         st.markdown("**Type or Paste Job Description Text Directly:**")
     with col_jd_txt_reset:
@@ -287,6 +350,8 @@ with tab_jd_text:
             st.session_state["parsed_jd_store"].clear()
             st.session_state["current_active_job"] = None
             st.rerun()
+    with col_jd_txt_prev:
+        trigger_preview_txt = st.button("Preview Job Criteria", key="btn_prev_jd_txt", type="primary", use_container_width=True, help="Extract & preview the job position title, requirements, education, and skills.")
 
     jd_raw_text = st.text_area(
         "Job Description Text:",
@@ -309,45 +374,18 @@ with tab_jd_text:
                 "text": jd_raw_text.strip()
             }
             st.success("Job Description text input ready.")
-    elif jd_raw_text:
-        st.warning("⚠️ Text is too short. Please provide comprehensive job description details.")
-
-# Button to trigger Preview Job Criteria & display summary
-if raw_jd_source:
-    jd_cache_key = f"{raw_jd_source['type']}_{raw_jd_source.get('name', 'jd')}_{len(raw_jd_source.get('bytes', b'')) if raw_jd_source.get('type') == 'pdf' else hash(raw_jd_source.get('text', ''))}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
-    
-    # Auto-load from memory cache if previously parsed (0ms, 0 API hit)
-    if jd_cache_key in st.session_state["parsed_jd_store"]:
-        active_job = st.session_state["parsed_jd_store"][jd_cache_key]
-        st.session_state["current_active_job"] = active_job
-    else:
-        active_job = st.session_state.get("current_active_job")
-
-    col_space, col_reset_prev, col_btn_prev = st.columns([2, 1, 1], vertical_alignment="center")
-    with col_reset_prev:
-        if st.button("Reset Job", key="btn_reset_active_jd", use_container_width=True, help="Reset the uploaded Job Description and criteria."):
-            st.session_state["jd_uploader_key"] += 1
-            st.session_state["jd_text_key"] += 1
-            st.session_state["drive_jd_file"] = None
-            st.session_state["executed_config_sig"] = ""
-            st.session_state["parsed_jd_store"].clear()
-            st.session_state["current_active_job"] = None
-            st.rerun()
-    with col_btn_prev:
-        if st.button("Preview Job Criteria", type="primary", use_container_width=True, help="Extract & preview the job position title, requirements, education, and skills."):
+            
+        if trigger_preview_txt:
+            jd_cache_key = f"text_{hash(jd_raw_text.strip())}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
             if jd_cache_key in st.session_state["parsed_jd_store"]:
                 active_job = st.session_state["parsed_jd_store"][jd_cache_key]
                 st.session_state["current_active_job"] = active_job
                 st.rerun()
             else:
-                with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is analyzing Job Description criteria..."):
+                with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is processing Job Description text..."):
                     try:
-                        if raw_jd_source["type"] == "pdf":
-                            jd_text = DocumentParser.extract_text_from_pdf(raw_jd_source["bytes"])
-                        else:
-                            jd_text = raw_jd_source["text"]
                         active_job = DocumentParser.parse_job_description(
-                            jd_text,
+                            jd_raw_text.strip(),
                             api_key=effective_api_key,
                             provider=selected_provider,
                             model_name=effective_model
@@ -357,6 +395,17 @@ if raw_jd_source:
                         st.rerun()
                     except Exception as e:
                         st.error(f"❌ Failed to extract Job Criteria: {str(e)}")
+    elif trigger_preview_txt:
+        st.warning("⚠️ Please provide comprehensive job description details (at least 20 characters) first.")
+    elif jd_raw_text:
+        st.warning("⚠️ Text is too short. Please provide comprehensive job description details.")
+
+# Auto-sync active_job from session store if raw_jd_source matches cached JD
+if raw_jd_source:
+    jd_cache_key = f"{raw_jd_source['type']}_{raw_jd_source.get('name', 'jd')}_{len(raw_jd_source.get('bytes', b'')) if raw_jd_source.get('type') == 'pdf' else hash(raw_jd_source.get('text', ''))}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+    if jd_cache_key in st.session_state["parsed_jd_store"]:
+        active_job = st.session_state["parsed_jd_store"][jd_cache_key]
+        st.session_state["current_active_job"] = active_job
 
 # Display extracted/active Job Criteria
 active_job = st.session_state.get("current_active_job")
