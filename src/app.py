@@ -15,6 +15,10 @@ try:
     from drive_importer import GoogleDriveImporter
 except ImportError:
     from src.drive_importer import GoogleDriveImporter
+try:
+    from ui_components import loading_screen
+except ImportError:
+    from src.ui_components import loading_screen
 
 # Page Config
 st.set_page_config(
@@ -105,7 +109,7 @@ if "connected_provider" not in st.session_state:
 if active_api_key:
     if not st.session_state["api_connected"]:
         if st.sidebar.button("🔗 Connect to Model", type="primary", use_container_width=True):
-            with st.spinner("Connecting to AI model..."):
+            with loading_screen("Loading, please wait...", subtext="Connecting to AI model..."):
                 try:
                     test_text = None
                     success_model = selected_model
@@ -220,7 +224,7 @@ with tab_jd_pdf:
         label_visibility="collapsed"
     )
     if uploaded_jd_pdf is not None:
-        with st.spinner(f"AI ({provider_choice}) is reading & validating the Job Description PDF..."):
+        with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is reading & validating Job Description..."):
             try:
                 jd_text = DocumentParser.extract_text_from_pdf(uploaded_jd_pdf.getvalue())
                 active_job = DocumentParser.parse_job_description(
@@ -252,7 +256,7 @@ with tab_jd_drive:
             st.session_state["executed_config_sig"] = ""
             st.rerun()
 
-    st.caption("💡 Supports a **specific single PDF file link** or a **public Google Drive folder** containing job vacancy documents.")
+    st.caption("💡 Ensure access is set to **'Anyone with the link can view'**.")
     
     col_jd_dr_in, col_jd_dr_btn = st.columns([3, 1], vertical_alignment="bottom")
     with col_jd_dr_in:
@@ -266,7 +270,7 @@ with tab_jd_drive:
     with col_jd_dr_btn:
         if st.button("Import Job from Drive", type="primary", use_container_width=True):
             if drive_jd_url and drive_jd_url.strip():
-                with st.spinner("Connecting to Google Drive & downloading Job Description..."):
+                with loading_screen("Loading, please wait...", subtext="Downloading Job Description from Google Drive..."):
                     jd_files, err = GoogleDriveImporter.fetch_pdf_files_from_drive(drive_jd_url)
                     if err:
                         st.error(err)
@@ -282,7 +286,7 @@ with tab_jd_drive:
     if st.session_state.get("drive_jd_file"):
         jd_f = st.session_state["drive_jd_file"]
         if active_job is None:
-            with st.spinner(f"AI ({provider_choice}) is validating the Job Description from Google Drive..."):
+            with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is validating Job Description from Google Drive..."):
                 try:
                     jd_text = DocumentParser.extract_text_from_pdf(jd_f["bytes"])
                     active_job = DocumentParser.parse_job_description(
@@ -327,7 +331,7 @@ with tab_jd_text:
     )
     if jd_raw_text and len(jd_raw_text.strip()) >= 20:
         if active_job is None:
-            with st.spinner(f"AI ({provider_choice}) is processing Job Description text..."):
+            with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is processing Job Description text..."):
                 try:
                     active_job = DocumentParser.parse_job_description(
                         jd_raw_text.strip(),
@@ -458,7 +462,7 @@ with tab_drive:
             st.session_state["executed_config_sig"] = ""
             st.rerun()
 
-    st.caption("💡 Supports **Google Drive Folder** (multi-CV ingestion) or a **specific single PDF file link**. Ensure access is set to **'Anyone with the link can view'**.")
+    st.caption("💡 Ensure access is set to **'Anyone with the link can view'**.")
     
     col_dr_in, col_dr_btn = st.columns([3, 1], vertical_alignment="bottom")
     with col_dr_in:
@@ -472,7 +476,7 @@ with tab_drive:
     with col_dr_btn:
         if st.button("Import from Drive", type="primary", use_container_width=True):
             if drive_folder_url and drive_folder_url.strip():
-                with st.spinner("Connecting to Google Drive & downloading PDF documents..."):
+                with loading_screen("Loading, please wait...", subtext="Downloading PDF documents from Google Drive..."):
                     files, err = GoogleDriveImporter.fetch_pdf_files_from_drive(drive_folder_url)
                     if err:
                         st.error(err)
@@ -504,14 +508,15 @@ if raw_cv_items:
             continue
 
         try:
-            raw_text = DocumentParser.extract_text_from_pdf(file_bytes)
-            parsed_cv = DocumentParser.parse_candidate_cv(
-                raw_text,
-                filename=fname,
-                api_key=effective_api_key,
-                provider=selected_provider,
-                model_name=effective_model
-            )
+            with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is reading & parsing {fname}..."):
+                raw_text = DocumentParser.extract_text_from_pdf(file_bytes)
+                parsed_cv = DocumentParser.parse_candidate_cv(
+                    raw_text,
+                    filename=fname,
+                    api_key=effective_api_key,
+                    provider=selected_provider,
+                    model_name=effective_model
+                )
             st.session_state["parsed_cv_store"][cv_cache_key] = parsed_cv
             candidates_to_process.append(parsed_cv)
         except EmptyPDFError:
@@ -617,27 +622,24 @@ else:
             model_name=effective_model
         )
         evaluated_results = []
-        progress_bar = st.progress(0, text="Analyzing candidate compatibility...")
+        with loading_screen("Loading, please wait...", subtext="AI is evaluating candidate compatibility & rankings..."):
+            for idx, raw_cv in enumerate(candidates_to_process):
+                cand_name = raw_cv.get("personal_info", {}).get("full_name") or f"Candidate #{idx+1}"
+                cv_to_process = BlindCVAnonymizer.anonymize_cv(raw_cv, enabled_fields=active_masked_fields) if enable_blind_cv else raw_cv
+                
+                # Cache Key for scoring evaluation to prevent redundant API hits on UI clicks
+                eval_cache_key = f"{raw_cv.get('cv_id')}_{active_job.get('job_id')}_{enable_blind_cv}_{'_'.join(sorted(active_masked_fields))}_{w_skill}_{w_exp}_{w_edu}_{threshold_score}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+                
+                if eval_cache_key in st.session_state["eval_results_store"]:
+                    eval_res = st.session_state["eval_results_store"][eval_cache_key]
+                else:
+                    eval_res = matcher.evaluate_candidate(cv_to_process, active_job, weights=custom_weights, threshold=float(threshold_score))
+                    eval_res["raw_cv"] = raw_cv
+                    eval_res["anonymized_cv"] = cv_to_process
+                    st.session_state["eval_results_store"][eval_cache_key] = eval_res
 
-        for idx, raw_cv in enumerate(candidates_to_process):
-            cand_name = raw_cv.get("personal_info", {}).get("full_name") or f"Candidate #{idx+1}"
-            progress_bar.progress((idx + 1) / len(candidates_to_process), text=f"🤖 Evaluating {cand_name} ({idx+1}/{len(candidates_to_process)})...")
-            cv_to_process = BlindCVAnonymizer.anonymize_cv(raw_cv, enabled_fields=active_masked_fields) if enable_blind_cv else raw_cv
-            
-            # Cache Key for scoring evaluation to prevent redundant API hits on UI clicks
-            eval_cache_key = f"{raw_cv.get('cv_id')}_{active_job.get('job_id')}_{enable_blind_cv}_{'_'.join(sorted(active_masked_fields))}_{w_skill}_{w_exp}_{w_edu}_{threshold_score}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
-            
-            if eval_cache_key in st.session_state["eval_results_store"]:
-                eval_res = st.session_state["eval_results_store"][eval_cache_key]
-            else:
-                eval_res = matcher.evaluate_candidate(cv_to_process, active_job, weights=custom_weights, threshold=float(threshold_score))
-                eval_res["raw_cv"] = raw_cv
-                eval_res["anonymized_cv"] = cv_to_process
-                st.session_state["eval_results_store"][eval_cache_key] = eval_res
+                evaluated_results.append(eval_res)
 
-            evaluated_results.append(eval_res)
-
-        progress_bar.empty()
         evaluated_results.sort(key=lambda x: x["overall_score"], reverse=True)
 
         tab1, tab2, tab3, tab4 = st.tabs([
