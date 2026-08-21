@@ -788,15 +788,157 @@ else:
                 st.json(target_audit["anonymized_cv"])
 
         with tab3:
-            st.subheader("📊 Candidate Score Distribution Analytics")
-            df_plot = pd.DataFrame([
-                {
-                    "Candidate": c["candidate_alias"] if enable_blind_cv else c["raw_cv"]["personal_info"].get("full_name", c["cv_id"]),
-                    "Overall Score (%)": c["overall_score"],
-                    "Skill Match Score (%)": c["score_breakdown"]["skill_match"],
-                    "Experience Score (%)": c["score_breakdown"]["experience_depth"]
-                } for c in evaluated_results
-            ])
-            st.bar_chart(df_plot.set_index("Candidate"))
+            st.subheader("📊 Candidate Score Distribution Analytics (Scale 0 - 100%)")
+            st.caption("Visualisasi perbandingan distribusi nilai match score kandidat dalam skala 0 - 100% yang mencakup Overall Fit Score, Skill Compatibility, Experience Relevance, dan Education & Major Alignment.")
+            
+            # --- 1. Metric Summary Cards ---
+            passed_cands = [c for c in evaluated_results if c["status"] == "Pass"]
+            considered_cands = [c for c in evaluated_results if c["status"] == "Considered"]
+            rejected_cands = [c for c in evaluated_results if c["status"] == "Rejected"]
+            avg_score = round(sum(c["overall_score"] for c in evaluated_results) / max(len(evaluated_results), 1), 1)
+            highest_score = max([c["overall_score"] for c in evaluated_results], default=0.0)
+
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                st.metric("Total Candidates Evaluated", f"{len(evaluated_results)} CVs")
+            with c2:
+                st.metric("Average Match Score", f"{avg_score}%")
+            with c3:
+                st.metric("Highest Candidate Score", f"{highest_score}%")
+            with c4:
+                st.metric("Qualified / Pass Rate", f"{len(passed_cands)} ({round(len(passed_cands)/max(len(evaluated_results),1)*100, 1)}%)")
+
+            st.markdown("---")
+
+            # --- 2. Plotly Grouped Multi-Criteria Score Breakdown Chart ---
+            try:
+                import plotly.graph_objects as go
+                
+                candidates_labels = [c["candidate_alias"] if enable_blind_cv else c["raw_cv"]["personal_info"].get("full_name", c["cv_id"]) for c in evaluated_results]
+                overall_scores = [c["overall_score"] for c in evaluated_results]
+                skill_scores = [c["score_breakdown"].get("skill_match", 0.0) for c in evaluated_results]
+                exp_scores = [c["score_breakdown"].get("experience_depth", 0.0) for c in evaluated_results]
+                edu_scores = [c["score_breakdown"].get("education_level", 0.0) for c in evaluated_results]
+
+                fig = go.Figure()
+
+                fig.add_trace(go.Bar(
+                    name="Overall Match Score",
+                    x=candidates_labels,
+                    y=overall_scores,
+                    text=[f"{v}%" for v in overall_scores],
+                    textposition="auto",
+                    marker_color="#2ecc71",
+                    hovertemplate="<b>%{x}</b><br>Overall Score: %{y:.1f}%<extra></extra>"
+                ))
+
+                fig.add_trace(go.Bar(
+                    name="Skill Compatibility",
+                    x=candidates_labels,
+                    y=skill_scores,
+                    text=[f"{v}%" for v in skill_scores],
+                    textposition="auto",
+                    marker_color="#3498db",
+                    hovertemplate="<b>%{x}</b><br>Skill Score: %{y:.1f}%<extra></extra>"
+                ))
+
+                fig.add_trace(go.Bar(
+                    name="Experience Domain Relevance",
+                    x=candidates_labels,
+                    y=exp_scores,
+                    text=[f"{v}%" for v in exp_scores],
+                    textposition="auto",
+                    marker_color="#f39c12",
+                    hovertemplate="<b>%{x}</b><br>Experience Score: %{y:.1f}%<extra></extra>"
+                ))
+
+                fig.add_trace(go.Bar(
+                    name="Education & Major Relevance",
+                    x=candidates_labels,
+                    y=edu_scores,
+                    text=[f"{v}%" for v in edu_scores],
+                    textposition="auto",
+                    marker_color="#9b59b6",
+                    hovertemplate="<b>%{x}</b><br>Education Score: %{y:.1f}%<extra></extra>"
+                ))
+
+                # Pass Threshold Reference Line
+                fig.add_hline(
+                    y=score_threshold,
+                    line_dash="dash",
+                    line_color="#e74c3c",
+                    line_width=2,
+                    annotation_text=f"Pass Threshold ({score_threshold}%)",
+                    annotation_position="top right"
+                )
+
+                fig.update_layout(
+                    title="<b>Candidate Multi-Criteria Score Breakdown & Comparison (Scale: 0 - 100%)</b>",
+                    barmode="group",
+                    yaxis=dict(
+                        title="Score Scale (%)",
+                        range=[0, 105],
+                        tickvals=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+                        gridcolor="#e9ecef"
+                    ),
+                    xaxis=dict(title="Candidates"),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                    height=500,
+                    margin=dict(l=40, r=40, t=80, b=40)
+                )
+
+                st.plotly_chart(fig, use_container_width=True)
+
+                # --- 3. Competency Radar Chart (Spider Chart) for Candidates ---
+                if len(evaluated_results) >= 2:
+                    st.markdown("#### 🕸️ Competency Radar Analysis (Scale: 0 - 100%)")
+                    st.caption("Perbandingan dimensi kompetensi kandidat (Skill, Pengalaman Relevan, Pendidikan) dalam visualisasi Radar Chart.")
+                    
+                    categories = ["Skill Compatibility", "Experience Relevance", "Education & Major", "Overall Fit"]
+                    fig_radar = go.Figure()
+                    
+                    for c in evaluated_results[:5]:  # Top 5 candidates
+                        lbl = c["candidate_alias"] if enable_blind_cv else c["raw_cv"]["personal_info"].get("full_name", c["cv_id"])
+                        r_vals = [
+                            c["score_breakdown"].get("skill_match", 0.0),
+                            c["score_breakdown"].get("experience_depth", 0.0),
+                            c["score_breakdown"].get("education_level", 0.0),
+                            c["overall_score"]
+                        ]
+                        r_vals.append(r_vals[0])  # close the polygon
+                        
+                        fig_radar.add_trace(go.Scatterpolar(
+                            r=r_vals,
+                            theta=categories + [categories[0]],
+                            fill='toself',
+                            name=lbl
+                        ))
+                        
+                    fig_radar.update_layout(
+                        polar=dict(
+                            radialaxis=dict(
+                                visible=True,
+                                range=[0, 100],
+                                tickvals=[0, 25, 50, 75, 100]
+                            )
+                        ),
+                        showlegend=True,
+                        height=450,
+                        margin=dict(l=40, r=40, t=40, b=40)
+                    )
+                    st.plotly_chart(fig_radar, use_container_width=True)
+
+            except Exception:
+                # Fallback to dataframe bar chart if Plotly encounters issue
+                df_plot = pd.DataFrame([
+                    {
+                        "Candidate": c["candidate_alias"] if enable_blind_cv else c["raw_cv"]["personal_info"].get("full_name", c["cv_id"]),
+                        "Overall Score (%)": c["overall_score"],
+                        "Skill Match Score (%)": c["score_breakdown"]["skill_match"],
+                        "Experience Score (%)": c["score_breakdown"]["experience_depth"],
+                        "Education Score (%)": c["score_breakdown"].get("education_level", 0.0)
+                    } for c in evaluated_results
+                ])
+                st.bar_chart(df_plot.set_index("Candidate"))
 
 st.caption("Autonomous Candidate Screening Platform v1.6.0 | AI Specialist Technical Assessment")
