@@ -211,17 +211,7 @@ tab_jd_pdf, tab_jd_drive, tab_jd_text = st.tabs([
 raw_jd_source = None
 
 with tab_jd_pdf:
-    col_jd_title, col_jd_reset = st.columns([3, 1], vertical_alignment="center")
-    with col_jd_title:
-        st.markdown("**Upload Job Description PDF Document:**")
-    with col_jd_reset:
-        if st.button("Reset PDF", use_container_width=True, help="Click to reset the uploaded Job Description PDF."):
-            st.session_state["jd_uploader_key"] += 1
-            st.session_state["drive_jd_file"] = None
-            st.session_state["executed_config_sig"] = ""
-            st.session_state["parsed_jd_store"].clear()
-            st.session_state["current_active_job"] = None
-            st.rerun()
+    st.markdown("**Upload Job Description PDF Document:**")
 
     uploaded_jd_pdf = st.file_uploader(
         "Upload Job Description PDF Document:",
@@ -344,7 +334,7 @@ if raw_jd_source:
             st.session_state["current_active_job"] = None
             st.rerun()
     with col_btn_prev:
-        if st.button("Preview Job Criteria", type="primary" if not active_job else "secondary", use_container_width=True, help="Extract & preview the job position title, requirements, education, and skills."):
+        if st.button("Preview Job Criteria", type="primary", use_container_width=True, help="Extract & preview the job position title, requirements, education, and skills."):
             if jd_cache_key in st.session_state["parsed_jd_store"]:
                 active_job = st.session_state["parsed_jd_store"][jd_cache_key]
                 st.session_state["current_active_job"] = active_job
