@@ -827,7 +827,11 @@ else:
             try:
                 import plotly.graph_objects as go
                 
-                candidates_labels = [c["candidate_alias"] if enable_blind_cv else c["raw_cv"]["personal_info"].get("full_name", c["cv_id"]) for c in evaluated_results]
+                # Use Candidate Real Name for visualization analytics
+                candidates_labels = [
+                    c.get("raw_cv", {}).get("personal_info", {}).get("full_name") or c.get("candidate_alias") or c.get("cv_id", "Candidate")
+                    for c in evaluated_results
+                ]
                 overall_scores = [c["overall_score"] for c in evaluated_results]
                 skill_scores = [c["score_breakdown"].get("skill_match", 0.0) for c in evaluated_results]
                 exp_scores = [c["score_breakdown"].get("experience_depth", 0.0) for c in evaluated_results]
@@ -1003,7 +1007,7 @@ else:
                         fig_radar = go.Figure()
                         
                         for c in evaluated_results[:5]:  # Top 5 candidates
-                            lbl = c["candidate_alias"] if enable_blind_cv else c["raw_cv"]["personal_info"].get("full_name", c["cv_id"])
+                            lbl = c.get("raw_cv", {}).get("personal_info", {}).get("full_name") or c.get("candidate_alias") or c.get("cv_id", "Candidate")
                             r_vals = [
                                 c["score_breakdown"].get("skill_match", 0.0),
                                 c["score_breakdown"].get("experience_depth", 0.0),
@@ -1039,7 +1043,7 @@ else:
                 st.warning(f"ℹ️ Plotly rendering notice: {e}. Displaying standard bar chart fallback:")
                 df_plot = pd.DataFrame([
                     {
-                        "Candidate": c["candidate_alias"] if enable_blind_cv else c["raw_cv"]["personal_info"].get("full_name", c["cv_id"]),
+                        "Candidate": c.get("raw_cv", {}).get("personal_info", {}).get("full_name") or c.get("candidate_alias") or c.get("cv_id", "Candidate"),
                         "Overall Match Score (%)": c["overall_score"],
                         "Skill Match (%)": c["score_breakdown"].get("skill_match", 0.0),
                         "Experience Depth (%)": c["score_breakdown"].get("experience_depth", 0.0),
