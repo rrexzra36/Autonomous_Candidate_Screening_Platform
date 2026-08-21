@@ -47,15 +47,6 @@ provider_choice = st.sidebar.selectbox(
 
 if provider_choice == "Google Gemini":
     selected_provider = "gemini"
-    
-    env_gemini_key = Config.GEMINI_API_KEY
-    api_key_input = st.sidebar.text_input(
-        "Google Gemini API Key:",
-        value=env_gemini_key,
-        type="password",
-        help="Get your free Gemini API Key at https://aistudio.google.com/"
-    )
-    active_api_key = Config.get_active_gemini_key(api_key_input)
 
     # Gemini 3.x Models & Custom Input Only
     model_options = [
@@ -72,6 +63,15 @@ if provider_choice == "Google Gemini":
         index=0,
         help="Select a Gemini version 3 model or choose 'Input Custom Model (Manual)' to specify your own model name."
     )
+
+    env_gemini_key = Config.GEMINI_API_KEY
+    api_key_input = st.sidebar.text_input(
+            "Google Gemini API Key:",
+            value=env_gemini_key,
+            type="password",
+            help="Get your free Gemini API Key at https://aistudio.google.com/"
+        )
+    active_api_key = Config.get_active_gemini_key(api_key_input)
     
     if selected_model_choice == "Input Custom Model (Manual)":
         custom_model = st.sidebar.text_input("Type Gemini Model Name:", value="gemini-3.5-flash")
