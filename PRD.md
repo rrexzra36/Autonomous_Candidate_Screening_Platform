@@ -1,5 +1,5 @@
 # Product Requirement Document (PRD)
-## Autonomous Candidate Screening Platform (AI-Powered Talent Acquisition Engine)
+## Autonomous Candidate Screening Platform (TalentAI Engine)
 
 | Metadata | Detail |
 | :--- | :--- |
@@ -7,242 +7,203 @@
 | **Project Name** | TalentAI Screening Engine |
 | **Author** | AI/ML Specialist |
 | **Target Audience** | Technical Assessors, HR Executive Team, System Engineers |
-| **Version** | v1.0.0 |
-| **Status** | Approved for PoC Implementation |
-| **Date** | 19 Agustus 2026 |
+| **Version** | v2.1.0 (Production-Ready PoC) |
+| **Status** | Approved & Fully Implemented |
+| **Date** | 21 Agustus 2026 |
 
 ---
 
 ## 1. Executive Summary & Business Context
 
 ### 1.1 Latar Belakang
-Perusahaan manufaktur yang sedang dalam fase pertumbuhan pesat mengalami lonjakan kebutuhan perekrutan karyawan (*high-volume rapid hiring*). Saat ini, proses penapisan (*screening*) Kurikulum Vitae (CV) dilakukan secara manual oleh tim Human Resources (HR). 
-
-Proses seleksi manual ini memiliki beberapa masalah kritis:
-1. **Inefisiensi Waktu & Biaya:** Membutuhkan rata-rata 15–20 menit per CV, menyebabkan penumpukan berkas pelamar (*backlog*) dan *Time-to-Hire* yang lambat.
+Perusahaan modern dan industri bertumbuh pesat menghadapi lonjakan volume rekrutmen (*high-volume rapid hiring*). Proses penapisan (*screening*) Kurikulum Vitae (CV) secara manual menimbulkan berbagai kendala serius:
+1. **Inefisiensi Waktu & Biaya:** Membutuhkan 15–20 menit per CV, memicu penumpukan berkas pelamar (*backlog*) dan *Time-to-Hire* yang lambat.
 2. **Kerentanan Bias Manusia:** Seleksi manual rentan terhadap bias subjektif (bias gender, usia, almamater, format visual CV, atau kelelahan manusia saat memeriksa ratusan CV).
 3. **Kualitas Matching yang Tidak Konsisten:** Pencocokan kualifikasi sulit terukur secara presisi tanpa standar penilaian terstruktur.
 
 ### 1.2 Tujuan Produk
-Membangun platform penapisan kandidat berbasis **AI/ML end-to-end** yang mengotomatiskan seluruh siklus seleksi CV dari berbagai portal kerja hingga rekomendasi daftar singkat (*shortlist*) kandidat terurut, transparan, objektif, dan dapat dipertanggungjawabkan (*explainable*).
+Membangun platform penapisan kandidat berbasis **AI/ML end-to-end** yang mengotomatiskan seluruh siklus seleksi CV dari berbagai format dokumen hingga rekomendasi daftar singkat (*shortlist*) kandidat terurut, transparan, objektif, dan dapat dipertanggungjawabkan (*explainable*).
 
 ### 1.3 Key Performance Indicators (KPIs)
 * **Time-to-Screen Reduction:** Mengurangi waktu penapisan CV hingga **> 90%** (dari ~15 menit menjadi **< 3 detik** per CV).
 * **Cost Efficiency:** Menghemat biaya operasi penapisan hingga **75%**.
 * **Bias Elimination:** 100% CV diproses secara *blind-screening* (tanpa akses ke PII sensitif saat tahap kualifikasi).
-* **Accuracy & Relevance:** Tingkat kesesuaian rekomendasi AI dengan keputusan akhir *Hiring Manager* mencapai **> 85%**.
+* **Accuracy & Relevance:** Tingkat kesesuaian rekomendasi AI dengan keputusan akhir *Hiring Manager* mencapai **> 90%** dengan penegakan *Domain Role Validation*.
 
 ---
 
 ## 2. Target User Personas & User Journeys
 
 ### 2.1 Personas
-1. **HR Recruiter (Primary User):** Mengelola lowongan pekerjaan, mengunggah/mengimpor CV, melihat perankingan kandidat, serta menyetujui rekomendasi wawancara.
-2. **Hiring Manager (Secondary User):** Menentukan kualifikasi & kriteria lowongan, meninjau skor kecocokan kandidat, serta membaca catatan analisis AI (*pros/cons*).
-3. **AI System Admin (Technical User):** Memantau performa model, mengelola prompt/rubrik penilaian, dan meninjau audit trail etika AI.
+1. **HR Recruiter (Primary User):** Mengelola lowongan pekerjaan, mengunggah/mengimpor CV, menyesuaikan bobot penilaian, melihat ranking kandidat, serta menyetujui rekomendasi wawancara.
+2. **Hiring Manager (Secondary User):** Menentukan kualifikasi & kriteria lowongan, meninjau skor kecocokan kandidat, serta membaca catatan analisis AI (*pros/cons/rationale*).
+3. **AI System Admin (Technical User):** Memantau performa model embedding/LLM, rubrik penilaian, dan audit trail etika AI.
 
-### 2.2 End-to-End User Journey
+### 2.2 End-to-End Application Flow
+Aplikasi memiliki alur kerja terstruktur 3-Langkah (*3-Step User Journey*):
+
 ```mermaid
 sequenceDiagram
     autonumber
     actor HR as HR Recruiter / Hiring Manager
-    participant Sys as Ingestion & Anonymizer
-    participant AI as Matching & LLM Engine
-    participant DB as Vector DB & Storage
-    actor User as Candidates (Job Portals)
+    participant App as Streamlit Dashboard
+    participant Parser as Section Chunking & Parser
+    participant Anon as Blind PII Anonymizer
+    participant Matcher as Multi-Tier Matching Engine
+    participant LLM as Gemini / OpenAI API
 
-    User->>Sys: Submit CV via Job Portal / Email / Webhook
-    HR->>Sys: Create Job Opening & Define Criteria
-    Sys->>Sys: Mask PII (Blind-CV Anonymization)
-    Sys->>AI: Extract Entities & Generate JSON Schema
-    AI->>DB: Store Embeddings & Structured Data
-    AI->>AI: Run 3-Tier Matching (Hard Filter -> Vector -> CoT LLM)
-    AI->>HR: Display Ranked Dashboard with XAI Match Score & Reasoning
-    HR->>HR: Review Shortlist & Click "Approve for Interview"
+    Note over HR,App: STEP 1: JOB DESCRIPTION SETUP
+    HR->>App: Unggah PDF JD / Input Google Drive / Pilih Preset
+    App->>Parser: extract_text_from_pdf() & parse_job_description()
+    Parser-->>App: Return Structured JD Criteria (Tech, Soft Skills, Hard Reqs)
+
+    Note over HR,App: STEP 2: CANDIDATE INGESTION & ANONYMIZATION
+    HR->>App: Unggah Batch PDF CV / Google Drive Folder
+    App->>Parser: Hierarchical Section Chunking & Entity Segmentation
+    Parser-->>App: Return Parsed Candidate Profile
+    App->>Anon: anonymize_cv() (Masking Nama, Gender, Usia, Kontak, Kampus)
+    Anon-->>App: Return Blind Candidate Profile (CANDIDATE-01)
+
+    Note over HR,App: STEP 3: AI SCREENING & EVALUATION
+    HR->>App: Atur Bobot (Skill, Exp, Edu) & Threshold, klik "Start AI Analysis"
+    App->>Matcher: evaluate_candidate(weights, threshold)
+    Matcher->>LLM: Compute text-embedding-004 & Cosine Similarity
+    Matcher->>Matcher: Run Tier 1 Knockout, Decoupled Skills, Domain Relevance, Mismatch Penalty
+    Matcher->>LLM: Generate Explainable AI Reasoning (Pros, Cons, Rationale)
+    Matcher-->>App: Return Ranked Evaluation Results
+    App->>HR: Display Leaderboard, Metric Cards, XAI Deep-Dive, & Export PDF/CSV/JSON
 ```
 
 ---
 
-## 3. Fitur Utama & Functional Requirements (FR)
+## 3. Spesifikasi Algoritma & Formula Matematis
 
-### FR-1: Automated CV Ingestion & Multi-Source Collection
-* **FR-1.1:** Sistem harus mendukung pengumpulan CV secara otomatis dari berbagai channel: Job Portal Webhooks/API (LinkedIn, Jobstreet, Glints), Ingestion via Email (IMAP/SMTP parsing), dan Unggah Manual secara *Batch* (PDF/DOCX/PNG/JPG).
-* **FR-1.2:** Sistem harus menyediakan antrean tugas (*Task Queue/Celery*) untuk menangani lonjakan ribuan CV secara simultan tanpa *timeout*.
+Platform mengintegrasikan 5 algoritma AI/NLP komprehensif:
 
-### FR-2: Blind-CV Anonymizer & Ethical Shield (Mitigasi Bias)
-* **FR-2.1:** Sebelum analisis kualifikasi, sistem wajib melakukan pencabutan/penutupan informasi identitas pribadi (*Person Identifiable Information / PII Masking*).
-* **FR-2.2:** Elemen yang di-masking secara otomatis meliputi:
-  * Nama Lengkap Kandidat
-  * Foto Profil & Jenis Kelamin
-  * Usia / Tanggal Lahir
-  * Agama / Suku / Kewarganegaraan
-  * Alamat Lengkap / Domisili Sensitif
-  * Nama Spesifik Perguruan Tinggi (diganti kategorisasi netral seperti: *"Akreditasi A / Equivalent"* jika diperlukan).
-
-### FR-3: Multi-Modal CV Parsing & Entity Extraction
-* **FR-3.1:** Sistem harus dapat memproses dokumen tak terstruktur dengan berbagai tata letak (1 kolom, 2 kolom, tabel, atau hasil *scan* dokumen).
-* **FR-3.2:** Menggunakan *Layout-aware Document Parsing* + OCR untuk mengekstrak entity terstruktur:
-  * *Work History:* Jabatan, Nama Perusahaan, Durasi (Bulan/Tahun), Deskripsi Tugas & Pencapaian.
-  * *Education:* Tingkat Pendidikan (D3/S1/S2), Jurusan, Tahun Lulus.
-  * *Hard & Soft Skills:* Daftar keterampilan teknis, sertifikasi, keahlian bahasa.
-
-### FR-4: Multi-Tier Hybrid Matching & Scoring Engine
-Sistem pencocokan menggunakan **3 Layer Penilaian**:
-
-```
- ┌──────────────────────────────────────────────────────────┐
- │ Layer 1: Hard Filter (Knockout Criteria)                 │
- │ (Filter instan: Min. Pendidikan, Lisensi Wajib, dll)    │
- └────────────────────────────┬─────────────────────────────┘
-                              │ Passed
-                              ▼
- ┌──────────────────────────────────────────────────────────┐
- │ Layer 2: Vector Semantic & Skill Graph Matching         │
- │ (Cosine similarity deskripsi kerja vs kriteria kualifikasi)│
- └────────────────────────────┬─────────────────────────────┘
-                              │ Candidates
-                              ▼
- ┌──────────────────────────────────────────────────────────┐
- │ Layer 3: LLM Chain-of-Thought (CoT) Deep Assessment      │
- │ (Evaluasi kualitas achievement, kompleksitas proyek)    │
- └──────────────────────────────────────────────────────────┘
-```
-
-* **FR-4.1 (Layer 1 - Hard Filter):** Mengeliminasi kandidat yang tidak memenuhi syarat mutlak secara instan (contoh: Pendidikan Min. S1 Teknik Mesin, Wajib memiliki Sertifikat K3).
-* **FR-4.2 (Layer 2 - Semantic Embedding):** Menghitung derajat kemiripan makna menggunakan *Vector Embeddings* & *Skill Graph Taxonomy* (mampu mengenali konseptual seperti `Python` = `Data Science` = `Machine Learning`).
-* **FR-4.3 (Layer 3 - LLM CoT Scoring):** LLM melakukan analisis kualitatif terhadap relevansi pengalaman dan memberikan bobot skor 0 - 100%.
-
-### FR-5: Explainable AI (XAI) Output & Shortlisting
-* **FR-5.1:** Setiap kandidat yang diperingkatkan harus dilengkapi dengan laporan transparansi:
-  * **Overall Fit Score (%)** (Misal: 88%)
-  * **Breakdown Score:** Technical Skills Match (90%), Experience Match (85%), Education Match (90%).
-  * **Key Strengths (Pros):** Alasan utama kandidat ini direkomendasikan.
-  * **Potential Gaps / Risk Factors (Cons):** Hal yang menjadi kekurangan atau area kritis.
-  * **Tailored Interview Questions:** 3-5 pertanyaan wawancara spesifik berdasarkan celah (*gap*) dalam CV kandidat.
-
-### FR-6: HR Dashboard & Human-in-the-Loop (HITL) Workflow
-* **FR-6.1:** Dashboard menyediakan antarmuka terurut (*ranked list*) berdasarkan skor kriteria.
-* **FR-6.2:** Fitur filter dinamis berdasarkan skor kecocokan, pengalaman minimum, atau *keyword skill*.
-* **FR-6.3:** *Action Button* untuk HR: `Approve for Interview`, `Reject`, atau `Hold`.
-* **FR-6.4:** *Feedback Loop:* Ketika HR melakukan *override* (menolak kandidat skor tinggi atau sebaliknya), sistem mencatat alasan HR untuk kalibrasi kriteria di masa mendatang.
+### 3.1 Algoritma 1: Hierarchical Section Chunking & Isolated Entity Segmentation
+* **Definisi:** Algoritma pemartisian dokumen berbasis tata letak (*Layout-Aware NLP*) yang membagi aliran teks mentah ke dalam zona semantik terisolasi sebelum ekstraksi entitas.
+* **Tujuan:** Menjamin *zero cross-contamination* antar seksi (mencegah teks kontak masuk ke *achievements* kerja atau kata umum terpotong menjadi nama institusi).
+* **Partisi Zona:**
+  $$\text{CV Raw Text} \xrightarrow{\text{Regex Anchor}} \Big\{ \mathcal{S}_{\text{Header}}, \; \mathcal{S}_{\text{Experience}}, \; \mathcal{S}_{\text{Education}}, \; \mathcal{S}_{\text{Skills}}, \; \mathcal{S}_{\text{Certifications}} \Big\}$$
 
 ---
 
-## 4. Non-Functional Requirements (NFR)
-
-### NFR-1: Performa & Skalabilitas
-* **Latency:** Ekstraksi dan evaluasi per CV tidak boleh melebihi **3 detik**.
-* **Throughput:** Sanggup memproses hingga **10.000 CV per hari** dengan arsitektur mikroservis berorientasi antrean (*Queue-driven worker*).
-
-### NFR-2: Etika AI & Mitigasi Bias
-* **Fairness Guarantee:** Algoritma scoring dilarang memanfaatkan atribut demografi non-profesional.
-* **Auditability:** Setiap skor dan analisis yang dihasilkan LLM harus disimpan beserta versi prompt dan versi model yang digunakan.
-
-### NFR-3: Keamanan & Data Compliance
-* **Data Privacy:** Memenuhi standar Regulasi Pelindungan Data Pribadi (UU PDP / GDPR). CV asli disimpan dalam enkripsi *AES-256*, dan data di-anonymized sebelum diproses oleh pihak ketiga (API AI).
-* **Role-Based Access Control (RBAC):** Hanya staf HR terotorisasi yang dapat membuka kunci data identitas asli (*unmasking PII*) kandidat yang lolos *shortlist*.
+### 3.2 Algoritma 2: Dense Semantic Vector Embeddings & Cosine Similarity
+* **Definisi:** Transformasi representasi profil teks JD ($\mathbf{u}$) dan CV ($\mathbf{v}$) ke dalam ruang vektor berdimensi tinggi menggunakan Google Gemini `text-embedding-004` (768 dimensi) atau OpenAI `text-embedding-3-small` (1536 dimensi).
+* **Formula Cosine Similarity:**
+  $$\cos(\theta) = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\|_2 \|\mathbf{v}\|_2} = \frac{\sum_{i=1}^n u_i v_i}{\sqrt{\sum_{i=1}^n u_i^2} \cdot \sqrt{\sum_{i=1}^n v_i^2}}$$
+* **Formula Skala Skor Semantik ($S_{\text{semantic}}$):**
+  $$S_{\text{semantic}} = \min\left(100.0, \; \max\left(0.0, \; \frac{\cos(\theta) \times 100 - 35.0}{0.55}\right)\right)$$
 
 ---
 
-## 5. Technical Stack & Architecture
+### 3.3 Algoritma 3: Multi-Tier Anti-Hallucination Matching & Domain Scoring
 
-```mermaid
-graph TD
-    A[CV Ingestion: PDF/DOCX] --> B[PyMuPDF / Docling Parser]
-    B --> C[Microsoft Presidio PII Masker]
-    C --> D[Anonymized CV JSON]
-    D --> E[Text Embeddings: BGE-M3 / OpenAI]
-    E --> F[Vector DB: Qdrant / ChromaDB]
-    D --> G[LLM Reasoning Engine: Gemini / DeepSeek / Llama-3]
-    F --> G
-    G --> H[FastAPI Backend Server]
-    H --> I[PostgreSQL Database]
-    H --> J[Streamlit / React Dashboard]
-```
+#### A. Tier 1: Hard Filter (Knockout Criteria)
+$$\text{HardFilterPassed} = \left( \sum_{i} \text{Duration}_i \ge \text{MinExp} \right) \land \left( \forall c \in \text{MandatoryCerts}, \; c \in \text{CandidateCerts} \right)$$
+Jika $\neg \text{HardFilterPassed}$, kandidat dikenakan penalti pemotongan nilai $50\%$.
 
-* **Programming Language:** Python 3.11+
-* **Framework:** FastAPI (Backend API), Streamlit / React (Dashboard UI)
-* **Document Processing & OCR:** `Docling`, `PyMuPDF`, `Tesseract OCR`
-* **PII Masking:** `Microsoft Presidio Anonymizer`
-* **Vector Database:** `Qdrant` / `ChromaDB`
-* **Embeddings & LLM:** `BGE-M3` / `OpenAI text-embedding-3`, `Gemini 1.5 Flash` / `DeepSeek-V3` / `Llama-3.1`
-* **Relational Database:** `PostgreSQL` (Metadata & Audit Logs)
+#### B. Tier 2: Perhitungan Komponen Penilaian
 
----
+##### 1. Parameter Skill Compatibility ($S_{\text{skill}}$)
+Memisahkan keahlian teknis (*Technical/Hard Skills*) dari *Soft Skills*:
+- $R_{\text{tech}} = \frac{N_{\text{matched\_tech}}}{\max(N_{\text{jd\_tech}}, 1)}$
+- $R_{\text{soft}} = \frac{N_{\text{matched\_soft}}}{\max(N_{\text{jd\_soft}}, 1)}$
 
-## 6. Data Schema Specifications
+$$S_{\text{skill}} = 
+\begin{cases} 
+\min\Big(15.0, \; (R_{\text{soft}} \times 10.0) + (S_{\text{semantic}} \times 0.05)\Big), & \text{jika } N_{\text{matched\_tech}} = 0 \\
+(R_{\text{tech}} \times 75.0) + (R_{\text{soft}} \times 15.0) + (\min(100, S_{\text{semantic}}) \times 0.10), & \text{jika } N_{\text{matched\_tech}} > 0 
+\end{cases}$$
 
-### 6.1 Anonymized Candidate JSON Schema
-```json
-{
-  "candidate_id": "CAND-89412",
-  "anonymized_profile": {
-    "education": [
-      {
-        "degree": "Bachelor of Engineering",
-        "major": "Mechanical Engineering",
-        "institution_category": "Accredited Grade A",
-        "graduation_year": 2022
-      }
-    ],
-    "work_experience": [
-      {
-        "role": "Production Quality Engineer",
-        "duration_months": 36,
-        "key_achievements": [
-          "Implemented Six Sigma methodologies reducing line defect rates by 14%",
-          "Managed automated conveyor inspection systems"
-        ]
-      }
-    ],
-    "skills": ["Six Sigma", "AutoCAD", "PLC Programming", "ISO 9001", "Quality Control"],
-    "certifications": ["Certified Six Sigma Green Belt"]
-  }
-}
-```
+##### 2. Parameter Work Experience Domain Relevance ($S_{\text{exp}}$)
+Relevansi dihitung berbasis token overlap terhadap domain vocabulary $\mathcal{D}$:
+$$\text{Relevance}_i = 
+\begin{cases} 
+1.0, & \text{jika } \text{Overlap}(\text{Role}_i, \mathcal{D}) \ge 0.12 \lor \text{HasTechSkill}_i \\
+0.5, & \text{jika } \text{Overlap}(\text{Role}_i, \mathcal{D}) > 0.04 \\
+0.0, & \text{jika di luar domain}
+\end{cases}$$
 
-### 6.2 Match Result Schema (XAI Output)
-```json
-{
-  "candidate_id": "CAND-89412",
-  "job_id": "JOB-MFG-002",
-  "overall_fit_score": 88.5,
-  "score_breakdown": {
-    "technical_skills_fit": 92.0,
-    "experience_depth_fit": 85.0,
-    "education_fit": 90.0
-  },
-  "status": "SHORTLISTED",
-  "justification": {
-    "pros": [
-      "Memiliki pengalaman langsung 3 tahun di bidang Quality Engineering manufaktur.",
-      "Memiliki sertifikasi Six Sigma Green Belt yang sesuai dengan kriteria utama lowongan."
-    ],
-    "cons": [
-      "Pengalaman pada sistem SCADA masih tingkat dasar."
-    ],
-    "recommended_interview_questions": [
-      "Bisakah Anda menceritakan pengalaman penerapan Six Sigma yang berhasil menurunkan defect rate 14%?",
-      "Sejauh mana keterlibatan Anda dalam integrasi sistem SCADA dengan PLC?"
-    ]
-  }
-}
-```
+$$\text{Years}_{\text{relevant}} = \sum_{i} \left( \text{Duration}_i \times \text{Relevance}_i \right)$$
+
+$$S_{\text{exp}} = 
+\begin{cases} 
+\min\left(100.0, \; \frac{\text{Years}_{\text{relevant}}}{\text{MinExp}} \times 100.0\right), & \text{jika } \text{Years}_{\text{relevant}} > 0 \\
+\min\left(10.0, \; \frac{\sum \text{Duration}_i}{\text{MinExp}} \times 10.0\right), & \text{jika } \text{Years}_{\text{relevant}} = 0
+\end{cases}$$
+
+##### 3. Parameter Education & Major Alignment ($S_{\text{edu}}$)
+$$S_{\text{edu}} = (S_{\text{deg\_level}} \times 0.40) + (S_{\text{major\_relevance}} \times 0.60)$$
+- $S_{\text{deg\_level}} \in [45.0, 100.0]$
+- $S_{\text{major\_relevance}} \in [20.0, 95.0]$
+
+#### C. Pembobotan Dinamis & Penalti Mismatch Kritis
+$$S_{\text{raw}} = (S_{\text{skill}} \times W_{\text{skill}}) + (S_{\text{exp}} \times W_{\text{exp}}) + (S_{\text{edu}} \times W_{\text{edu}})$$
+*(Standar: $W_{\text{skill}} = 0.50, W_{\text{exp}} = 0.30, W_{\text{edu}} = 0.20$)*
+
+**Critical Domain Mismatch Penalty Filter:**
+Jika kandidat memiliki $N_{\text{matched\_tech}} = 0 \land \text{Years}_{\text{relevant}} = 0$:
+$$S_{\text{overall}} = 
+\begin{cases} 
+\min(22.0, \; S_{\text{raw}}), & \text{jika } S_{\text{major}} \le 50.0 \text{ (Jurusan berbeda)} \\
+\min(28.0, \; S_{\text{raw}}), & \text{jika } S_{\text{major}} > 50.0 \\
+S_{\text{raw}}, & \text{kandidat dalam domain relevan}
+\end{cases}$$
+
+Jika $\neg \text{HardFilterPassed}$, maka: $S_{\text{overall}} = S_{\text{overall}} \times 0.5$.
+
+#### D. Klasifikasi Keputusan
+$$\text{Status} = 
+\begin{cases} 
+\mathbf{Pass}, & \text{jika } S_{\text{overall}} \ge \text{Threshold} \land \text{HardFilterPassed} \\
+\mathbf{Considered}, & \text{jika } S_{\text{overall}} \ge \max(\text{Threshold} - 15.0, \; 45.0) \\
+\mathbf{Rejected}, & \text{lainnya}
+\end{cases}$$
 
 ---
 
-## 7. Scope & Plan untuk Proof of Concept (PoC)
-
-Untuk memenuhi tenggat waktu uji teknis (3 hari), PoC dirancang mencakup:
-1. **Interactive HR Dashboard:** Antarmuka Streamlit/Web UI untuk mengunggah CV, memilih Job Description, dan melihat hasil ranking real-time.
-2. **Parsing & Anonymization Engine:** Script otomatisasi untuk menyamarkan PII dan mengekstrak entitas CV.
-3. **Multi-Criteria Scoring Demo:** Evaluasi kandidat menggunakan kombinasi *Hard Filter* + *Vector Similarity* + *LLM Reasoning*.
-4. **Exportable XAI Report:** Fitur unduh laporan hasil seleksi dalam format JSON / PDF / Excel.
+### 3.4 Algoritma 4: Dynamic Ethical PII Anonymization Engine
+* **Target Sanitasi:**
+  - Nama Lengkap $\to$ `CANDIDATE-XX`
+  - Email $\to$ `candidate-xx@screening.local`
+  - Telepon $\to$ `+628**********`
+  - Jenis Kelamin & Usia $\to$ `[REDACTED FOR SCREENING]`
+  - Institusi $\to$ `Accredited Higher Education Institution`
 
 ---
 
-## 8. Tanggal & Persetujuan Dokumen
+### 3.5 Algoritma 5: Explainable AI (XAI) & Structured Reasoning Generation
+* Menghasilkan penjelasan bahasa alami transparan:
+  - **Profile Strengths (Pros):** Rincian keahlian teknis dan durasi pengalaman relevan.
+  - **Areas for Consideration (Cons):** Rincian gap software spesifik dan mismatch domain.
+  - **Executive Decision Rationale:** Justifikasi bisnis tegas untuk status *Pass / Considered / Rejected*.
 
-* **Dibuat Oleh:** AI Specialist
-* **Lokasi Repository:** `D:\Github\Autonomous_Candidate_Screening_Platform`
-* **File PRD:** `D:\Github\Autonomous_Candidate_Screening_Platform\PRD.md`
+---
+
+## 4. Technical Stack Architecture
+
+| Layer | Komponen / Library | Deskripsi |
+| :--- | :--- | :--- |
+| **UI & Visualisasi** | `Streamlit` (v1.30+), `Plotly`, `Pandas` | Dashboard interaktif, grafik radar/distribusi skor, dan data leaderboard. |
+| **Dokumen & NLP** | `pypdf`, `re` | Ekstraksi PDF multi-kolom dan segmentasi seksi berbasis *Layout-Aware NLP*. |
+| **Model AI / LLM** | `google-genai` / `google.generativeai` | Gemini 2.5 Flash, Gemini 3.x, `text-embedding-004`. |
+| | `openai` | GPT-4o-mini, GPT-4o, `text-embedding-3-small`. |
+| **Offline Engine** | Sparse TF-IDF Vectorizer | Komputasi cosine similarity & rule-based XAI tanpa ketergantungan koneksi API. |
+| **Integrasi & Ekspor** | `requests`, `gdown`, HTML/CSS | Google Drive Ingestion, Ekspor Laporan Seleksi Resmi (PDF, CSV, JSON). |
+
+---
+
+## 5. Scope Implementasi PoC & Kesiapan Produksi
+
+1. **Step 1:** Ingestion Job Description via Upload PDF, Google Drive, Preset, atau Custom Form dengan validasi dokumen otomatis.
+2. **Step 2:** Multi-Candidate Ingestion via Upload Batch PDF & Google Drive Folder dengan *Blind Anonymization* seketika.
+3. **Step 3:** Dynamic Weight Sliders, Tombol *Reset Weights*, Proteksi *Anti-Auto-Load*, Visualisasi Leaderboard, XAI Deep-Dive, dan Ekspor Laporan Resmi.
+
+---
+
+## 6. Persetujuan & Metadata Dokumen
+* **Author:** AI/ML Specialist Candidate
+* **Repository:** `D:\Github\Autonomous_Candidate_Screening_Platform`
+* **File:** `PRD.md` (v2.1.0)
+
