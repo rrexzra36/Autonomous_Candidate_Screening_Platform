@@ -669,7 +669,6 @@ else:
                 with st.container(border=True):
                     st.markdown(f"#### #{rank} **{real_name}**{alias_label} — Match Score: **{item['overall_score']}%**")
                     
-                    col_a, col_b, col_c, col_d = st.columns(4)
                     status_val = item["status"]
                     if status_val == "Pass":
                         status_styled = '<span style="color:#16a34a; font-weight:bold; font-size:1.05rem;">Pass</span>'
@@ -678,11 +677,7 @@ else:
                     else:
                         status_styled = '<span style="color:#dc2626; font-weight:bold; font-size:1.05rem;">Rejected</span>'
                     
-                    edu_card_val = item["score_breakdown"].get("education", item["score_breakdown"].get("education_tier", 0.0))
-                    col_a.markdown(f"📌 **Status:** {status_styled}", unsafe_allow_html=True)
-                    col_b.markdown(f"🎯 **Skill Match:** `{item['score_breakdown']['skill_match']}%`")
-                    col_c.markdown(f"💼 **Experience Depth:** `{item['score_breakdown']['experience_depth']}%`")
-                    col_d.markdown(f"🎓 **Education:** `{edu_card_val}%`")
+                    st.markdown(f"📌 **Recommendation Status:** {status_styled}", unsafe_allow_html=True)
                     
                     with st.expander("Review"):
                         active_profile = item["raw_cv"]
