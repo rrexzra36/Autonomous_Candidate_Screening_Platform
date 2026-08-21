@@ -25,7 +25,7 @@ st.set_page_config(
 )
 
 # Header
-st.title("🤖 Autonomous Candidate Screening Platform")
+st.title("Autonomous Candidate Screening Platform")
 st.caption("AI-Powered Talent Acquisition Engine for Rapid Screening with Ethical Blind Anonymization & Explainable AI (XAI)")
 
 st.markdown("---")
@@ -195,9 +195,9 @@ if "drive_jd_file" not in st.session_state:
     st.session_state["drive_jd_file"] = None
 
 tab_jd_pdf, tab_jd_drive, tab_jd_text = st.tabs([
-    "📤 PDF Upload", 
-    "📁 Import Google Drive", 
-    "✍️ Type Text"
+    "PDF Upload", 
+    "Import Google Drive", 
+    "Type Text"
 ])
 
 active_job = None
@@ -207,7 +207,7 @@ with tab_jd_pdf:
     with col_jd_title:
         st.markdown("**Upload Job Description PDF Document:**")
     with col_jd_reset:
-        if st.button("🗑️ Reset PDF", use_container_width=True, help="Click to reset the uploaded Job Description PDF."):
+        if st.button("Reset PDF", use_container_width=True, help="Click to reset the uploaded Job Description PDF."):
             st.session_state["jd_uploader_key"] += 1
             st.session_state["drive_jd_file"] = None
             st.session_state["executed_config_sig"] = ""
@@ -220,7 +220,7 @@ with tab_jd_pdf:
         label_visibility="collapsed"
     )
     if uploaded_jd_pdf is not None:
-        with st.spinner(f"🤖 AI ({provider_choice}) is reading & validating the Job Description PDF..."):
+        with st.spinner(f"AI ({provider_choice}) is reading & validating the Job Description PDF..."):
             try:
                 jd_text = DocumentParser.extract_text_from_pdf(uploaded_jd_pdf.getvalue())
                 active_job = DocumentParser.parse_job_description(
@@ -247,7 +247,7 @@ with tab_jd_drive:
     with col_jd_dr_title:
         st.markdown("**Import Job Description from Google Drive:**")
     with col_jd_dr_reset:
-        if st.button("🗑️ Reset Drive File", key="btn_reset_jd_drive", use_container_width=True, help="Click to reset the Job Description imported from Google Drive."):
+        if st.button("Reset Drive File", key="btn_reset_jd_drive", use_container_width=True, help="Click to reset the Job Description imported from Google Drive."):
             st.session_state["drive_jd_file"] = None
             st.session_state["executed_config_sig"] = ""
             st.rerun()
@@ -264,9 +264,9 @@ with tab_jd_drive:
             label_visibility="collapsed"
         )
     with col_jd_dr_btn:
-        if st.button("📥 Import Job from Drive", type="primary", use_container_width=True):
+        if st.button("Import Job from Drive", type="primary", use_container_width=True):
             if drive_jd_url and drive_jd_url.strip():
-                with st.spinner("⏳ Connecting to Google Drive & downloading Job Description..."):
+                with st.spinner("Connecting to Google Drive & downloading Job Description..."):
                     jd_files, err = GoogleDriveImporter.fetch_pdf_files_from_drive(drive_jd_url)
                     if err:
                         st.error(err)
@@ -282,7 +282,7 @@ with tab_jd_drive:
     if st.session_state.get("drive_jd_file"):
         jd_f = st.session_state["drive_jd_file"]
         if active_job is None:
-            with st.spinner(f"🤖 AI ({provider_choice}) is validating the Job Description from Google Drive..."):
+            with st.spinner(f"AI ({provider_choice}) is validating the Job Description from Google Drive..."):
                 try:
                     jd_text = DocumentParser.extract_text_from_pdf(jd_f["bytes"])
                     active_job = DocumentParser.parse_job_description(
@@ -307,7 +307,7 @@ with tab_jd_text:
     with col_jd_txt_title:
         st.markdown("**Type or Paste Job Description Text Directly:**")
     with col_jd_txt_reset:
-        if st.button("🗑️ Clear Text", key="btn_reset_jd_text", use_container_width=True, help="Click to clear the job description text."):
+        if st.button("Clear Text", key="btn_reset_jd_text", use_container_width=True, help="Click to clear the job description text."):
             st.session_state["jd_text_area"] = ""
             st.session_state["executed_config_sig"] = ""
             st.rerun()
@@ -327,7 +327,7 @@ with tab_jd_text:
     )
     if jd_raw_text and len(jd_raw_text.strip()) >= 20:
         if active_job is None:
-            with st.spinner(f"🤖 AI ({provider_choice}) is processing Job Description text..."):
+            with st.spinner(f"AI ({provider_choice}) is processing Job Description text..."):
                 try:
                     active_job = DocumentParser.parse_job_description(
                         jd_raw_text.strip(),
@@ -348,7 +348,7 @@ with tab_jd_text:
 
 # Display extracted/active Job Criteria
 if active_job:
-    with st.expander(f"📋 Identified Criteria Summary: **{active_job['title']}**", expanded=True):
+    with st.expander(f"Identified Criteria Summary: **{active_job['title']}**", expanded=True):
         st.markdown(f"**Position:** {active_job.get('title', 'Professional Role')}")
         st.markdown(f"**Required Major / Discipline:** {active_job.get('major', active_job.get('department', 'All Related Disciplines'))}")
         st.markdown(f"**Min. Education:** {active_job['hard_requirements'].get('min_education', 'Bachelor Degree')}")
@@ -411,7 +411,7 @@ if "drive_cv_files" not in st.session_state:
 if "prev_uploaded_cv_names" not in st.session_state:
     st.session_state["prev_uploaded_cv_names"] = []
 
-tab_upload, tab_drive = st.tabs(["📄 PDF Upload", "📁 Import Google Drive"])
+tab_upload, tab_drive = st.tabs(["PDF Upload", "Import Google Drive"])
 
 raw_cv_items = []
 
@@ -420,7 +420,7 @@ with tab_upload:
     with col_up_title:
         st.markdown("**Upload Candidate CV Documents (Multiple PDF):**")
     with col_clear_btn:
-        if st.button("🗑️ Clear All CVs", use_container_width=True, help="Click to clear and reset all uploaded candidate CV files."):
+        if st.button("Clear All CVs", use_container_width=True, help="Click to clear and reset all uploaded candidate CV files."):
             st.session_state["cv_uploader_key"] += 1
             st.session_state["parsed_cv_store"] = {}
             st.session_state["eval_results_store"] = {}
@@ -452,7 +452,7 @@ with tab_drive:
     with col_dr_title:
         st.markdown("**Import Candidate CVs from Google Drive:**")
     with col_dr_reset:
-        if st.button("🗑️ Reset Drive Files", key="btn_reset_cv_drive", use_container_width=True, help="Click to clear and reset all files imported from Google Drive."):
+        if st.button("Reset Drive Files", key="btn_reset_cv_drive", use_container_width=True, help="Click to clear and reset all files imported from Google Drive."):
             st.session_state["drive_cv_files"] = []
             st.session_state["eval_results_store"] = {}
             st.session_state["executed_config_sig"] = ""
@@ -470,9 +470,9 @@ with tab_drive:
             label_visibility="collapsed"
         )
     with col_dr_btn:
-        if st.button("📥 Import from Drive", type="primary", use_container_width=True):
+        if st.button("Import from Drive", type="primary", use_container_width=True):
             if drive_folder_url and drive_folder_url.strip():
-                with st.spinner("⏳ Connecting to Google Drive & downloading PDF documents..."):
+                with st.spinner("Connecting to Google Drive & downloading PDF documents..."):
                     files, err = GoogleDriveImporter.fetch_pdf_files_from_drive(drive_folder_url)
                     if err:
                         st.error(err)
@@ -535,18 +535,18 @@ if "weights_reset_key" not in st.session_state:
     st.session_state["weights_reset_key"] = 0
 
 if not active_job:
-    st.info("📋 Please setup or upload a **Job Description** in **Step 1** first.")
+    st.info("Please setup or upload a **Job Description** in **Step 1** first.")
 elif not candidates_to_process:
-    st.info("📤 Please upload or import **Candidate CVs** in **Step 2** first.")
+    st.info("Please upload or import **Candidate CVs** in **Step 2** first.")
 else:
     with st.container(border=True):
         st.markdown(f"Ready to evaluate **{len(candidates_to_process)} candidate CVs** for **{active_job['title']}**.")
         
-        st.markdown("**⚙️ Scoring Weights & Criteria Configuration:**")
+        st.markdown("**Scoring Weights & Criteria Configuration:**")
         col_w0, col_w1, col_w2, col_w3 = st.columns(4)
         with col_w0:
             threshold_score = st.number_input(
-                "📊 Threshold (%)",
+                "Threshold (%)",
                 min_value=0,
                 max_value=100,
                 value=60,
@@ -556,7 +556,7 @@ else:
             )
         with col_w1:
             w_skill = st.number_input(
-                "🎯 Skill Match (%)",
+                "Skill Match (%)",
                 min_value=0,
                 max_value=100,
                 value=50,
@@ -566,7 +566,7 @@ else:
             )
         with col_w2:
             w_exp = st.number_input(
-                "💼 Experience Depth (%)",
+                "Experience Depth (%)",
                 min_value=0,
                 max_value=100,
                 value=30,
@@ -576,7 +576,7 @@ else:
             )
         with col_w3:
             w_edu = st.number_input(
-                "🎓 Education (%)",
+                "Education (%)",
                 min_value=0,
                 max_value=100,
                 value=20,
@@ -600,12 +600,12 @@ else:
             if total_weight != 100:
                 st.warning(f"⚠️ Total scoring weight must equal 100% (Current Total: **{total_weight}%**).")
         with col_reset_btn:
-            if st.button("🔄 Reset Weights", use_container_width=True, help="Reset scoring weights to default values (60% Threshold, 50% Skills, 30% Experience, 20% Education)."):
+            if st.button("Reset Weights", use_container_width=True, help="Reset scoring weights to default values (60% Threshold, 50% Skills, 30% Experience, 20% Education)."):
                 st.session_state["weights_reset_key"] += 1
                 st.rerun()
         with col_btn:
             is_disabled = (total_weight != 100)
-            if st.button("🚀 Start AI Analysis", type="primary", use_container_width=True, disabled=is_disabled):
+            if st.button("Start AI Analysis", type="primary", use_container_width=True, disabled=is_disabled):
                 st.session_state["executed_config_sig"] = current_config_sig
                 st.rerun()
 
@@ -641,10 +641,10 @@ else:
         evaluated_results.sort(key=lambda x: x["overall_score"], reverse=True)
 
         tab1, tab2, tab3, tab4 = st.tabs([
-            "🏆 Leaderboard & Screening Results",
-            "🛡️ Blind-CV Anonymization",
-            "📊 Analytics & Distribution",
-            "📑 Summary"
+            "Leaderboard & Screening Results",
+            "Blind-CV Anonymization",
+            "Analytics & Distribution",
+            "Summary"
         ])
 
         with tab1:
@@ -655,16 +655,16 @@ else:
             m1, m2, m3 = st.columns(3)
             with m1:
                 with st.container(border=True):
-                    st.metric("📁 Total CVs Processed", len(evaluated_results))
+                    st.metric("Total CVs Processed", len(evaluated_results))
             with m2:
                 with st.container(border=True):
-                    st.metric("🎯 Shortlisted Candidates", len(filtered_list))
+                    st.metric("Shortlisted Candidates", len(filtered_list))
             with m3:
                 with st.container(border=True):
                     avg_score = round(sum(c['overall_score'] for c in evaluated_results) / len(evaluated_results), 1) if evaluated_results else 0
-                    st.metric("📈 Average Match Score", f"{avg_score}%")
+                    st.metric("Average Match Score", f"{avg_score}%")
 
-            st.markdown("### 📋 Ranked Candidates (Leaderboard)")
+            st.markdown("### Ranked Candidates (Leaderboard)")
 
             for rank, item in enumerate(evaluated_results, start=1):
                 raw_personal = item["raw_cv"].get("personal_info", {})
@@ -682,7 +682,7 @@ else:
                     else:
                         status_styled = '<span style="color:#dc2626; font-weight:bold; font-size:1.05rem;">Rejected</span>'
                     
-                    st.markdown(f"📌 **Recommendation Status:** {status_styled}", unsafe_allow_html=True)
+                    st.markdown(f"**Recommendation Status:** {status_styled}", unsafe_allow_html=True)
                     
                     with st.expander("Review"):
                         active_profile = item["raw_cv"]
@@ -775,7 +775,7 @@ else:
                                 st.error(f"**Rejected:** {rec_reason}")
 
         with tab2:
-            st.subheader("🛡️ Blind-CV Anonymization Audit")
+            st.subheader("Blind-CV Anonymization Audit")
             st.info("This feature allows you to granularly select personal identifiable information (PII) to be masked before data is evaluated, guaranteeing 100% merit-based assessment.")
             
             cv_options = [c["cv_id"] for c in evaluated_results]
@@ -791,7 +791,7 @@ else:
                 st.json(target_audit["anonymized_cv"])
 
         with tab3:
-            st.subheader("📊 Candidate Score Distribution Analytics (Scale 0 - 100%)")
+            st.subheader("Candidate Score Distribution Analytics (Scale 0 - 100%)")
             st.caption("Visualisasi perbandingan distribusi nilai match score kandidat dalam skala 0 - 100% yang mencakup Overall Match Score, Skill Match, Experience Depth, dan Education.")
             
             # --- 1. Metric Summary Cards ---
@@ -804,16 +804,16 @@ else:
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 with st.container(border=True):
-                    st.metric("📁 Total Candidates Evaluated", f"{len(evaluated_results)} CVs")
+                    st.metric("Total Candidates Evaluated", f"{len(evaluated_results)} CVs")
             with c2:
                 with st.container(border=True):
-                    st.metric("📈 Average Match Score", f"{avg_score}%")
+                    st.metric("Average Match Score", f"{avg_score}%")
             with c3:
                 with st.container(border=True):
-                    st.metric("⭐ Highest Candidate Score", f"{highest_score}%")
+                    st.metric("Highest Candidate Score", f"{highest_score}%")
             with c4:
                 with st.container(border=True):
-                    st.metric("🎯 Qualified / Pass Rate", f"{len(passed_cands)} ({round(len(passed_cands)/max(len(evaluated_results),1)*100, 1)}%)")
+                    st.metric("Qualified / Pass Rate", f"{len(passed_cands)} ({round(len(passed_cands)/max(len(evaluated_results),1)*100, 1)}%)")
 
             st.markdown("---")
 
@@ -821,9 +821,9 @@ else:
             chart_view = st.radio(
                 "Select Analytics Visualization Mode:",
                 [
-                    "📊 Stacked Composite Contribution (0 - 100%)",
-                    "📈 Grouped Multi-Metric Comparison (0 - 100%)",
-                    "🕸️ Competency Radar Analysis (0 - 100%)"
+                    "Stacked Composite Contribution (0 - 100%)",
+                    "Grouped Multi-Metric Comparison (0 - 100%)",
+                    "Competency Radar Analysis (0 - 100%)"
                 ],
                 horizontal=True
             )
@@ -846,7 +846,7 @@ else:
                 w_e = custom_weights.get("experience", 30.0) / 100.0
                 w_ed = custom_weights.get("education", 20.0) / 100.0
 
-                if chart_view == "📊 Stacked Composite Contribution (0 - 100%)":
+                if chart_view == "Stacked Composite Contribution (0 - 100%)":
                     st.info(
                         f"💡 **Penjelasan Grafik Stacked Bar (Skala 0 - 100%):** Tiap batang bar merepresentasikan total **Overall Match Score** kandidat yang terbentuk dari akumulasi 3 komponen terbobot: "
                         f"**Skill Match** ({int(w_s*100)}% bobot), **Experience Depth** ({int(w_e*100)}% bobot), dan **Education** ({int(w_ed*100)}% bobot)."
@@ -934,7 +934,7 @@ else:
 
                     st.plotly_chart(fig_stacked, use_container_width=True)
 
-                elif chart_view == "📈 Grouped Multi-Metric Comparison (0 - 100%)":
+                elif chart_view == "Grouped Multi-Metric Comparison (0 - 100%)":
                     fig_grouped = go.Figure()
 
                     fig_grouped.add_trace(go.Bar(
@@ -1003,7 +1003,7 @@ else:
 
                     st.plotly_chart(fig_grouped, use_container_width=True)
 
-                elif chart_view == "🕸️ Competency Radar Analysis (0 - 100%)":
+                elif chart_view == "Competency Radar Analysis (0 - 100%)":
                     if len(evaluated_results) >= 2:
                         st.caption("Perbandingan dimensi kompetensi kandidat (Skill Match, Experience Depth, Education, Overall Match Score) dalam visualisasi Radar Chart (Skala 0 - 100%).")
                         
@@ -1041,7 +1041,7 @@ else:
                         )
                         st.plotly_chart(fig_radar, use_container_width=True)
                     else:
-                        st.info("ℹ️ Minimal dibutuhkan 2 kandidat untuk visualisasi perbandingan Radar Chart.")
+                        st.info("Minimal dibutuhkan 2 kandidat untuk visualisasi perbandingan Radar Chart.")
 
             except Exception as e:
                 st.warning(f"ℹ️ Plotly rendering notice: {e}. Displaying standard bar chart fallback:")
@@ -1057,7 +1057,7 @@ else:
                 st.bar_chart(df_plot.set_index("Candidate"))
 
         with tab4:
-            st.subheader("📑 Candidate Evaluation Summary Table")
+            st.subheader("Candidate Evaluation Summary Table")
             st.caption("Tabel ringkasan menyeluruh hasil penapisan kandidat yang dapat difilter dan diekspor ke format CSV maupun Excel (.xlsx).")
 
             # Construct Summary DataFrame
@@ -1078,7 +1078,7 @@ else:
                 status_raw = c.get("status", "Rejected")
                 
                 summary_rows.append({
-                    "Rank": f"#{rank}",
+                    "Rank": rank,
                     "Candidate Name": full_name,
                     "Email": email,
                     "Phone": phone,
@@ -1112,7 +1112,7 @@ else:
             csv_data = df_filtered.to_csv(index=False).encode('utf-8')
             with col_exp1:
                 st.download_button(
-                    label="📥 Export CSV",
+                    label="Export CSV",
                     data=csv_data,
                     file_name=f"Candidate_Screening_Summary_{active_job.get('job_id', 'job')}.csv",
                     mime="text/csv",
@@ -1128,7 +1128,7 @@ else:
 
             with col_exp2:
                 st.download_button(
-                    label="📊 Export Excel (.xlsx)",
+                    label="Export Excel (.xlsx)",
                     data=excel_data,
                     file_name=f"Candidate_Screening_Summary_{active_job.get('job_id', 'job')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
