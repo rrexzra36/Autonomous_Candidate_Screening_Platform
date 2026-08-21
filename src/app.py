@@ -195,6 +195,8 @@ st.header("1️⃣ Job Position & Criteria Setup (Job Description)")
 
 if "jd_uploader_key" not in st.session_state:
     st.session_state["jd_uploader_key"] = 0
+if "jd_text_key" not in st.session_state:
+    st.session_state["jd_text_key"] = 0
 if "drive_jd_file" not in st.session_state:
     st.session_state["drive_jd_file"] = None
 if "parsed_jd_store" not in st.session_state:
@@ -290,7 +292,7 @@ with tab_jd_text:
         st.markdown("**Type or Paste Job Description Text Directly:**")
     with col_jd_txt_reset:
         if st.button("Clear Text", key="btn_reset_jd_text", use_container_width=True, help="Click to clear the job description text."):
-            st.session_state["jd_text_area"] = ""
+            st.session_state["jd_text_key"] += 1
             st.session_state["executed_config_sig"] = ""
             st.session_state["parsed_jd_store"].clear()
             st.session_state["current_active_job"] = None
@@ -306,7 +308,7 @@ with tab_jd_text:
             "Requirements: Minimum 2 years experience in design and build, AutoCAD, SketchUp, Revit, Technical Drawing...\n"
             "Responsibilities: Support project execution, 3D visualization, and site supervision..."
         ),
-        key="jd_text_area",
+        key=f"jd_text_area_{st.session_state['jd_text_key']}",
         label_visibility="collapsed"
     )
     if jd_raw_text and len(jd_raw_text.strip()) >= 20:
@@ -335,8 +337,8 @@ if raw_jd_source:
     with col_reset_prev:
         if st.button("Reset Job", key="btn_reset_active_jd", use_container_width=True, help="Reset the uploaded Job Description and criteria."):
             st.session_state["jd_uploader_key"] += 1
+            st.session_state["jd_text_key"] += 1
             st.session_state["drive_jd_file"] = None
-            st.session_state["jd_text_area"] = ""
             st.session_state["executed_config_sig"] = ""
             st.session_state["parsed_jd_store"].clear()
             st.session_state["current_active_job"] = None
