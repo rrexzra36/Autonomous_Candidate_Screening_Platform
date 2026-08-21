@@ -803,13 +803,17 @@ else:
 
             c1, c2, c3, c4 = st.columns(4)
             with c1:
-                st.metric("Total Candidates Evaluated", f"{len(evaluated_results)} CVs")
+                with st.container(border=True):
+                    st.metric("📁 Total Candidates Evaluated", f"{len(evaluated_results)} CVs")
             with c2:
-                st.metric("Average Match Score", f"{avg_score}%")
+                with st.container(border=True):
+                    st.metric("📈 Average Match Score", f"{avg_score}%")
             with c3:
-                st.metric("Highest Candidate Score", f"{highest_score}%")
+                with st.container(border=True):
+                    st.metric("⭐ Highest Candidate Score", f"{highest_score}%")
             with c4:
-                st.metric("Qualified / Pass Rate", f"{len(passed_cands)} ({round(len(passed_cands)/max(len(evaluated_results),1)*100, 1)}%)")
+                with st.container(border=True):
+                    st.metric("🎯 Qualified / Pass Rate", f"{len(passed_cands)} ({round(len(passed_cands)/max(len(evaluated_results),1)*100, 1)}%)")
 
             st.markdown("---")
 
