@@ -197,6 +197,8 @@ if "jd_uploader_key" not in st.session_state:
     st.session_state["jd_uploader_key"] = 0
 if "drive_jd_file" not in st.session_state:
     st.session_state["drive_jd_file"] = None
+if "parsed_jd_store" not in st.session_state:
+    st.session_state["parsed_jd_store"] = {}
 
 tab_jd_pdf, tab_jd_drive, tab_jd_text = st.tabs([
     "PDF Upload", 
@@ -215,6 +217,7 @@ with tab_jd_pdf:
             st.session_state["jd_uploader_key"] += 1
             st.session_state["drive_jd_file"] = None
             st.session_state["executed_config_sig"] = ""
+            st.session_state["parsed_jd_store"].clear()
             st.rerun()
 
     uploaded_jd_pdf = st.file_uploader(
@@ -224,27 +227,34 @@ with tab_jd_pdf:
         label_visibility="collapsed"
     )
     if uploaded_jd_pdf is not None:
-        with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is reading & validating Job Description..."):
-            try:
-                jd_text = DocumentParser.extract_text_from_pdf(uploaded_jd_pdf.getvalue())
-                active_job = DocumentParser.parse_job_description(
-                    jd_text,
-                    api_key=effective_api_key,
-                    provider=selected_provider,
-                    model_name=effective_model
-                )
-                st.success(f"✅ Successfully extracted job criteria: **{active_job['title']}**")
-            except EmptyPDFError as e:
-                st.error(f"❌ **Unreadable / Empty PDF File:** {str(e)}")
-                st.info("💡 **Solution:** Ensure the PDF contains digital text (not a scanned image without OCR text).")
-                active_job = None
-            except InvalidDocumentError as e:
-                st.error(f"❌ **Invalid Document:** {str(e)}")
-                st.warning("💡 **Tip:** Ensure the uploaded document contains genuine job vacancy requirements or responsibilities.")
-                active_job = None
-            except Exception as e:
-                st.error(f"❌ **Failed to Process PDF:** {str(e)}")
-                active_job = None
+        jd_bytes = uploaded_jd_pdf.getvalue()
+        jd_cache_key = f"pdf_{uploaded_jd_pdf.name}_{len(jd_bytes)}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+        
+        if jd_cache_key in st.session_state["parsed_jd_store"]:
+            active_job = st.session_state["parsed_jd_store"][jd_cache_key]
+        else:
+            with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is reading & validating Job Description..."):
+                try:
+                    jd_text = DocumentParser.extract_text_from_pdf(jd_bytes)
+                    active_job = DocumentParser.parse_job_description(
+                        jd_text,
+                        api_key=effective_api_key,
+                        provider=selected_provider,
+                        model_name=effective_model
+                    )
+                    st.session_state["parsed_jd_store"][jd_cache_key] = active_job
+                    st.success(f"✅ Successfully extracted job criteria: **{active_job['title']}**")
+                except EmptyPDFError as e:
+                    st.error(f"❌ **Unreadable / Empty PDF File:** {str(e)}")
+                    st.info("💡 **Solution:** Ensure the PDF contains digital text (not a scanned image without OCR text).")
+                    active_job = None
+                except InvalidDocumentError as e:
+                    st.error(f"❌ **Invalid Document:** {str(e)}")
+                    st.warning("💡 **Tip:** Ensure the uploaded document contains genuine job vacancy requirements or responsibilities.")
+                    active_job = None
+                except Exception as e:
+                    st.error(f"❌ **Failed to Process PDF:** {str(e)}")
+                    active_job = None
 
 with tab_jd_drive:
     col_jd_dr_title, col_jd_dr_reset = st.columns([3, 1], vertical_alignment="center")
@@ -254,6 +264,7 @@ with tab_jd_drive:
         if st.button("Reset Drive File", key="btn_reset_jd_drive", use_container_width=True, help="Click to reset the Job Description imported from Google Drive."):
             st.session_state["drive_jd_file"] = None
             st.session_state["executed_config_sig"] = ""
+            st.session_state["parsed_jd_store"].clear()
             st.rerun()
 
     st.caption("💡 Ensure access is set to **'Anyone with the link can view'**.")
@@ -286,25 +297,30 @@ with tab_jd_drive:
     if st.session_state.get("drive_jd_file"):
         jd_f = st.session_state["drive_jd_file"]
         if active_job is None:
-            with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is validating Job Description from Google Drive..."):
-                try:
-                    jd_text = DocumentParser.extract_text_from_pdf(jd_f["bytes"])
-                    active_job = DocumentParser.parse_job_description(
-                        jd_text,
-                        api_key=effective_api_key,
-                        provider=selected_provider,
-                        model_name=effective_model
-                    )
-                    st.success(f"✅ Successfully extracted job criteria: **{active_job['title']}**")
-                except EmptyPDFError as e:
-                    st.error(f"❌ **Unreadable / Empty PDF File:** {str(e)}")
-                    active_job = None
-                except InvalidDocumentError as e:
-                    st.error(f"❌ **Invalid Document:** {str(e)}")
-                    active_job = None
-                except Exception as e:
-                    st.error(f"❌ **Failed to Process Document:** {str(e)}")
-                    active_job = None
+            dr_jd_cache_key = f"drive_{jd_f['name']}_{len(jd_f['bytes'])}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+            if dr_jd_cache_key in st.session_state["parsed_jd_store"]:
+                active_job = st.session_state["parsed_jd_store"][dr_jd_cache_key]
+            else:
+                with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is validating Job Description from Google Drive..."):
+                    try:
+                        jd_text = DocumentParser.extract_text_from_pdf(jd_f["bytes"])
+                        active_job = DocumentParser.parse_job_description(
+                            jd_text,
+                            api_key=effective_api_key,
+                            provider=selected_provider,
+                            model_name=effective_model
+                        )
+                        st.session_state["parsed_jd_store"][dr_jd_cache_key] = active_job
+                        st.success(f"✅ Successfully extracted job criteria: **{active_job['title']}**")
+                    except EmptyPDFError as e:
+                        st.error(f"❌ **Unreadable / Empty PDF File:** {str(e)}")
+                        active_job = None
+                    except InvalidDocumentError as e:
+                        st.error(f"❌ **Invalid Document:** {str(e)}")
+                        active_job = None
+                    except Exception as e:
+                        st.error(f"❌ **Failed to Process Document:** {str(e)}")
+                        active_job = None
 
 with tab_jd_text:
     col_jd_txt_title, col_jd_txt_reset = st.columns([3, 1], vertical_alignment="center")
@@ -314,6 +330,7 @@ with tab_jd_text:
         if st.button("Clear Text", key="btn_reset_jd_text", use_container_width=True, help="Click to clear the job description text."):
             st.session_state["jd_text_area"] = ""
             st.session_state["executed_config_sig"] = ""
+            st.session_state["parsed_jd_store"].clear()
             st.rerun()
 
     jd_raw_text = st.text_area(
@@ -331,22 +348,27 @@ with tab_jd_text:
     )
     if jd_raw_text and len(jd_raw_text.strip()) >= 20:
         if active_job is None:
-            with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is processing Job Description text..."):
-                try:
-                    active_job = DocumentParser.parse_job_description(
-                        jd_raw_text.strip(),
-                        api_key=effective_api_key,
-                        provider=selected_provider,
-                        model_name=effective_model
-                    )
-                    st.success(f"✅ Successfully extracted job criteria: **{active_job['title']}**")
-                except InvalidDocumentError as e:
-                    st.error(f"❌ **Incomplete Text Format:** {str(e)}")
-                    st.warning("💡 **Tip:** Ensure text includes position title, requirements, or responsibilities.")
-                    active_job = None
-                except Exception as e:
-                    st.error(f"❌ **Failed to Process Text:** {str(e)}")
-                    active_job = None
+            txt_jd_cache_key = f"text_{hash(jd_raw_text.strip())}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+            if txt_jd_cache_key in st.session_state["parsed_jd_store"]:
+                active_job = st.session_state["parsed_jd_store"][txt_jd_cache_key]
+            else:
+                with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is processing Job Description text..."):
+                    try:
+                        active_job = DocumentParser.parse_job_description(
+                            jd_raw_text.strip(),
+                            api_key=effective_api_key,
+                            provider=selected_provider,
+                            model_name=effective_model
+                        )
+                        st.session_state["parsed_jd_store"][txt_jd_cache_key] = active_job
+                        st.success(f"✅ Successfully extracted job criteria: **{active_job['title']}**")
+                    except InvalidDocumentError as e:
+                        st.error(f"❌ **Incomplete Text Format:** {str(e)}")
+                        st.warning("💡 **Tip:** Ensure text includes position title, requirements, or responsibilities.")
+                        active_job = None
+                    except Exception as e:
+                        st.error(f"❌ **Failed to Process Text:** {str(e)}")
+                        active_job = None
     elif jd_raw_text:
         st.warning("⚠️ Text is too short. Please provide comprehensive job description details.")
 

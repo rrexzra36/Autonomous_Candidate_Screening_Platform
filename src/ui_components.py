@@ -34,19 +34,6 @@ def loading_screen(message: str = "Loading, please wait...", subtext: str = ""):
         animation: fadeInOverlay 0.25s ease-in-out;
     }}
     
-    .loading-overlay-card {{
-        background: rgba(30, 41, 59, 0.92);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        padding: 32px 48px;
-        border-radius: 16px;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        max-width: 440px;
-    }}
-    
     .circular-spinner {{
         width: 52px;
         height: 52px;
@@ -87,11 +74,9 @@ def loading_screen(message: str = "Loading, please wait...", subtext: str = ""):
     </style>
     
     <div class="loading-overlay-backdrop">
-        <div class="loading-overlay-card">
-            <div class="circular-spinner"></div>
-            <p class="loading-text">{message}</p>
-            {subtext_html}
-        </div>
+        <div class="circular-spinner"></div>
+                    <p class="loading-text">{message}</p>
+                    {subtext_html}
     </div>
     """
     
