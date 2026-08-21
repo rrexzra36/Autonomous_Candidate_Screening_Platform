@@ -236,9 +236,10 @@ with tab_jd_pdf:
         st.success(f"Job Description PDF ready: **{uploaded_jd_pdf.name}**")
 
 with tab_jd_drive:
-    col_jd_dr_title, col_jd_dr_reset = st.columns([3, 1], vertical_alignment="center")
-    with col_jd_dr_title:
-        st.markdown("**Import Job Description from Google Drive:**")
+    st.markdown("**Import Job Description from Google Drive:**")
+    col_jd_cap, col_jd_dr_reset = st.columns([3, 1], vertical_alignment="center")
+    with col_jd_cap:
+        st.caption("💡 Ensure access is set to **'Anyone with the link can view'**.")
     with col_jd_dr_reset:
         if st.button("Reset Drive File", key="btn_reset_jd_drive", use_container_width=True, help="Click to reset the Job Description imported from Google Drive."):
             st.session_state["drive_jd_file"] = None
@@ -246,8 +247,6 @@ with tab_jd_drive:
             st.session_state["parsed_jd_store"].clear()
             st.session_state["current_active_job"] = None
             st.rerun()
-
-    st.caption("💡 Ensure access is set to **'Anyone with the link can view'**.")
     
     col_jd_dr_in, col_jd_dr_btn = st.columns([3, 1], vertical_alignment="bottom")
     with col_jd_dr_in:
@@ -424,17 +423,16 @@ with tab_upload:
             st.session_state["executed_config_sig"] = ""
 
 with tab_drive:
-    col_dr_title, col_dr_reset = st.columns([3, 1], vertical_alignment="center")
-    with col_dr_title:
-        st.markdown("**Import Candidate CVs from Google Drive:**")
+    st.markdown("**Import Candidate CVs from Google Drive:**")
+    col_dr_cap, col_dr_reset = st.columns([3, 1], vertical_alignment="center")
+    with col_dr_cap:
+        st.caption("💡 Ensure access is set to **'Anyone with the link can view'**.")
     with col_dr_reset:
         if st.button("Reset Drive Files", key="btn_reset_cv_drive", use_container_width=True, help="Click to clear and reset all files imported from Google Drive."):
             st.session_state["drive_cv_files"] = []
             st.session_state["eval_results_store"].clear()
             st.session_state["executed_config_sig"] = ""
             st.rerun()
-
-    st.caption("💡 Ensure access is set to **'Anyone with the link can view'**.")
     
     col_dr_in, col_dr_btn = st.columns([3, 1], vertical_alignment="bottom")
     with col_dr_in:
