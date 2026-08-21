@@ -206,7 +206,7 @@ tab_jd_pdf, tab_jd_drive, tab_jd_text = st.tabs([
     "Type Text"
 ])
 
-active_job = None
+raw_jd_source = None
 
 with tab_jd_pdf:
     col_jd_title, col_jd_reset = st.columns([3, 1], vertical_alignment="center")
@@ -218,6 +218,7 @@ with tab_jd_pdf:
             st.session_state["drive_jd_file"] = None
             st.session_state["executed_config_sig"] = ""
             st.session_state["parsed_jd_store"].clear()
+            st.session_state["current_active_job"] = None
             st.rerun()
 
     uploaded_jd_pdf = st.file_uploader(
@@ -227,34 +228,12 @@ with tab_jd_pdf:
         label_visibility="collapsed"
     )
     if uploaded_jd_pdf is not None:
-        jd_bytes = uploaded_jd_pdf.getvalue()
-        jd_cache_key = f"pdf_{uploaded_jd_pdf.name}_{len(jd_bytes)}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
-        
-        if jd_cache_key in st.session_state["parsed_jd_store"]:
-            active_job = st.session_state["parsed_jd_store"][jd_cache_key]
-        else:
-            with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is reading & validating Job Description..."):
-                try:
-                    jd_text = DocumentParser.extract_text_from_pdf(jd_bytes)
-                    active_job = DocumentParser.parse_job_description(
-                        jd_text,
-                        api_key=effective_api_key,
-                        provider=selected_provider,
-                        model_name=effective_model
-                    )
-                    st.session_state["parsed_jd_store"][jd_cache_key] = active_job
-                    st.success(f"✅ Successfully extracted job criteria: **{active_job['title']}**")
-                except EmptyPDFError as e:
-                    st.error(f"❌ **Unreadable / Empty PDF File:** {str(e)}")
-                    st.info("💡 **Solution:** Ensure the PDF contains digital text (not a scanned image without OCR text).")
-                    active_job = None
-                except InvalidDocumentError as e:
-                    st.error(f"❌ **Invalid Document:** {str(e)}")
-                    st.warning("💡 **Tip:** Ensure the uploaded document contains genuine job vacancy requirements or responsibilities.")
-                    active_job = None
-                except Exception as e:
-                    st.error(f"❌ **Failed to Process PDF:** {str(e)}")
-                    active_job = None
+        raw_jd_source = {
+            "type": "pdf",
+            "name": uploaded_jd_pdf.name,
+            "bytes": uploaded_jd_pdf.getvalue()
+        }
+        st.success(f"Job Description PDF ready: **{uploaded_jd_pdf.name}**")
 
 with tab_jd_drive:
     col_jd_dr_title, col_jd_dr_reset = st.columns([3, 1], vertical_alignment="center")
@@ -265,6 +244,7 @@ with tab_jd_drive:
             st.session_state["drive_jd_file"] = None
             st.session_state["executed_config_sig"] = ""
             st.session_state["parsed_jd_store"].clear()
+            st.session_state["current_active_job"] = None
             st.rerun()
 
     st.caption("💡 Ensure access is set to **'Anyone with the link can view'**.")
@@ -289,38 +269,21 @@ with tab_jd_drive:
                     else:
                         st.session_state["drive_jd_file"] = jd_files[0]
                         st.session_state["executed_config_sig"] = ""
-                        st.success(f"✅ Successfully imported [{jd_files[0]['name']}] from Google Drive.")
+                        st.session_state["current_active_job"] = None
+                        st.success(f"Successfully imported [{jd_files[0]['name']}] from Google Drive.")
                         st.rerun()
             else:
                 st.warning("⚠️ Please enter a Google Drive link first.")
 
     if st.session_state.get("drive_jd_file"):
         jd_f = st.session_state["drive_jd_file"]
-        if active_job is None:
-            dr_jd_cache_key = f"drive_{jd_f['name']}_{len(jd_f['bytes'])}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
-            if dr_jd_cache_key in st.session_state["parsed_jd_store"]:
-                active_job = st.session_state["parsed_jd_store"][dr_jd_cache_key]
-            else:
-                with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is validating Job Description from Google Drive..."):
-                    try:
-                        jd_text = DocumentParser.extract_text_from_pdf(jd_f["bytes"])
-                        active_job = DocumentParser.parse_job_description(
-                            jd_text,
-                            api_key=effective_api_key,
-                            provider=selected_provider,
-                            model_name=effective_model
-                        )
-                        st.session_state["parsed_jd_store"][dr_jd_cache_key] = active_job
-                        st.success(f"✅ Successfully extracted job criteria: **{active_job['title']}**")
-                    except EmptyPDFError as e:
-                        st.error(f"❌ **Unreadable / Empty PDF File:** {str(e)}")
-                        active_job = None
-                    except InvalidDocumentError as e:
-                        st.error(f"❌ **Invalid Document:** {str(e)}")
-                        active_job = None
-                    except Exception as e:
-                        st.error(f"❌ **Failed to Process Document:** {str(e)}")
-                        active_job = None
+        if raw_jd_source is None:
+            raw_jd_source = {
+                "type": "pdf",
+                "name": jd_f["name"],
+                "bytes": jd_f["bytes"]
+            }
+            st.success(f"Job Description from Google Drive ready: **{jd_f['name']}**")
 
 with tab_jd_text:
     col_jd_txt_title, col_jd_txt_reset = st.columns([3, 1], vertical_alignment="center")
@@ -331,6 +294,7 @@ with tab_jd_text:
             st.session_state["jd_text_area"] = ""
             st.session_state["executed_config_sig"] = ""
             st.session_state["parsed_jd_store"].clear()
+            st.session_state["current_active_job"] = None
             st.rerun()
 
     jd_raw_text = st.text_area(
@@ -347,32 +311,18 @@ with tab_jd_text:
         label_visibility="collapsed"
     )
     if jd_raw_text and len(jd_raw_text.strip()) >= 20:
-        if active_job is None:
-            txt_jd_cache_key = f"text_{hash(jd_raw_text.strip())}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
-            if txt_jd_cache_key in st.session_state["parsed_jd_store"]:
-                active_job = st.session_state["parsed_jd_store"][txt_jd_cache_key]
-            else:
-                with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is processing Job Description text..."):
-                    try:
-                        active_job = DocumentParser.parse_job_description(
-                            jd_raw_text.strip(),
-                            api_key=effective_api_key,
-                            provider=selected_provider,
-                            model_name=effective_model
-                        )
-                        st.session_state["parsed_jd_store"][txt_jd_cache_key] = active_job
-                        st.success(f"✅ Successfully extracted job criteria: **{active_job['title']}**")
-                    except InvalidDocumentError as e:
-                        st.error(f"❌ **Incomplete Text Format:** {str(e)}")
-                        st.warning("💡 **Tip:** Ensure text includes position title, requirements, or responsibilities.")
-                        active_job = None
-                    except Exception as e:
-                        st.error(f"❌ **Failed to Process Text:** {str(e)}")
-                        active_job = None
+        if raw_jd_source is None:
+            raw_jd_source = {
+                "type": "text",
+                "name": "Typed Job Description",
+                "text": jd_raw_text.strip()
+            }
+            st.success("Job Description text input ready.")
     elif jd_raw_text:
         st.warning("⚠️ Text is too short. Please provide comprehensive job description details.")
 
-# Display extracted/active Job Criteria
+# Display extracted/active Job Criteria if already analyzed
+active_job = st.session_state.get("current_active_job")
 if active_job:
     with st.expander(f"Identified Criteria Summary: **{active_job['title']}**", expanded=True):
         st.markdown(f"**Position:** {active_job.get('title', 'Professional Role')}")
@@ -448,8 +398,8 @@ with tab_upload:
     with col_clear_btn:
         if st.button("Clear All CVs", use_container_width=True, help="Click to clear and reset all uploaded candidate CV files."):
             st.session_state["cv_uploader_key"] += 1
-            st.session_state["parsed_cv_store"] = {}
-            st.session_state["eval_results_store"] = {}
+            st.session_state["parsed_cv_store"].clear()
+            st.session_state["eval_results_store"].clear()
             st.session_state["executed_config_sig"] = ""
             st.session_state["prev_uploaded_cv_names"] = []
             st.rerun()
@@ -480,7 +430,7 @@ with tab_drive:
     with col_dr_reset:
         if st.button("Reset Drive Files", key="btn_reset_cv_drive", use_container_width=True, help="Click to clear and reset all files imported from Google Drive."):
             st.session_state["drive_cv_files"] = []
-            st.session_state["eval_results_store"] = {}
+            st.session_state["eval_results_store"].clear()
             st.session_state["executed_config_sig"] = ""
             st.rerun()
 
@@ -514,42 +464,8 @@ with tab_drive:
         for f in st.session_state["drive_cv_files"]:
             raw_cv_items.append({"name": f["name"], "bytes": f["bytes"]})
 
-candidates_to_process = []
-
 if raw_cv_items:
-    invalid_cv_count = 0
-    for item in raw_cv_items:
-        fname = item["name"]
-        file_bytes = item["bytes"]
-        cv_cache_key = f"{fname}_{len(file_bytes)}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
-        
-        # Check if CV has already been parsed in session memory
-        if cv_cache_key in st.session_state["parsed_cv_store"]:
-            parsed_cv = st.session_state["parsed_cv_store"][cv_cache_key]
-            candidates_to_process.append(parsed_cv)
-            continue
-
-        try:
-            with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is reading & parsing {fname}..."):
-                raw_text = DocumentParser.extract_text_from_pdf(file_bytes)
-                parsed_cv = DocumentParser.parse_candidate_cv(
-                    raw_text,
-                    filename=fname,
-                    api_key=effective_api_key,
-                    provider=selected_provider,
-                    model_name=effective_model
-                )
-            st.session_state["parsed_cv_store"][cv_cache_key] = parsed_cv
-            candidates_to_process.append(parsed_cv)
-        except EmptyPDFError:
-            st.warning(f"⚠️ **File Skipped [{fname}]:** Empty document or pure scanned image without digital OCR text.")
-            invalid_cv_count += 1
-        except InvalidDocumentError as e:
-            st.warning(f"⚠️ **File Skipped [{fname}]:** {str(e)}")
-            invalid_cv_count += 1
-        except Exception as e:
-            st.warning(f"⚠️ **Failed to Process [{fname}]:** {str(e)}")
-            invalid_cv_count += 1
+    st.success(f"**{len(raw_cv_items)} Candidate CV documents ready** for evaluation.")
 
 st.markdown("---")
 
@@ -561,13 +477,13 @@ st.header("3️⃣ AI Screening & Evaluation Results")
 if "weights_reset_key" not in st.session_state:
     st.session_state["weights_reset_key"] = 0
 
-if not active_job:
+if not raw_jd_source:
     st.info("Please setup or upload a **Job Description** in **Step 1** first.")
-elif not candidates_to_process:
+elif not raw_cv_items:
     st.info("Please upload or import **Candidate CVs** in **Step 2** first.")
 else:
     with st.container(border=True):
-        st.markdown(f"Ready to evaluate **{len(candidates_to_process)} candidate CVs** for **{active_job['title']}**.")
+        st.markdown(f"Ready to evaluate **{len(raw_cv_items)} candidate CVs** against Job Description criteria.")
         
         st.markdown("**Scoring Weights & Criteria Configuration:**")
         col_w0, col_w1, col_w2, col_w3 = st.columns(4)
@@ -620,7 +536,9 @@ else:
         }
 
         # Unique state fingerprint for current input configuration
-        current_config_sig = f"{active_job.get('job_id', '')}_{len(candidates_to_process)}_{'_'.join(sorted([c.get('cv_id', '') for c in candidates_to_process]))}_{enable_blind_cv}_{'_'.join(sorted(active_masked_fields))}_{w_skill}_{w_exp}_{w_edu}_{threshold_score}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+        raw_jd_name = raw_jd_source.get("name", "jd")
+        raw_cv_names = "_".join(sorted([f["name"] for f in raw_cv_items]))
+        current_config_sig = f"{raw_jd_name}_{len(raw_cv_items)}_{raw_cv_names}_{enable_blind_cv}_{'_'.join(sorted(active_masked_fields))}_{w_skill}_{w_exp}_{w_edu}_{threshold_score}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
 
         col_warn, col_reset_btn, col_btn = st.columns([2, 1, 1], vertical_alignment="center")
         with col_warn:
@@ -638,31 +556,80 @@ else:
 
     # The evaluation results and leaderboards ONLY execute and display if the user has explicitly clicked Start AI Analysis for the current configuration
     if st.session_state.get("executed_config_sig") == current_config_sig:
-        matcher = CandidateMatcherEngine(
-            api_key=effective_api_key,
-            provider=selected_provider,
-            model_name=effective_model
-        )
-        evaluated_results = []
-        with loading_screen("Loading, please wait...", subtext="AI is evaluating candidate compatibility & rankings..."):
-            for idx, raw_cv in enumerate(candidates_to_process):
-                cand_name = raw_cv.get("personal_info", {}).get("full_name") or f"Candidate #{idx+1}"
-                cv_to_process = BlindCVAnonymizer.anonymize_cv(raw_cv, enabled_fields=active_masked_fields) if enable_blind_cv else raw_cv
-                
-                # Cache Key for scoring evaluation to prevent redundant API hits on UI clicks
-                eval_cache_key = f"{raw_cv.get('cv_id')}_{active_job.get('job_id')}_{enable_blind_cv}_{'_'.join(sorted(active_masked_fields))}_{w_skill}_{w_exp}_{w_edu}_{threshold_score}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
-                
-                if eval_cache_key in st.session_state["eval_results_store"]:
-                    eval_res = st.session_state["eval_results_store"][eval_cache_key]
+        with loading_screen("Loading, please wait...", subtext="AI is parsing documents and screening candidates..."):
+            # 1. Parse Job Description
+            active_job = st.session_state.get("current_active_job")
+            if not active_job:
+                jd_cache_key = f"{raw_jd_source['type']}_{raw_jd_source.get('name', 'jd')}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+                if jd_cache_key in st.session_state["parsed_jd_store"]:
+                    active_job = st.session_state["parsed_jd_store"][jd_cache_key]
                 else:
-                    eval_res = matcher.evaluate_candidate(cv_to_process, active_job, weights=custom_weights, threshold=float(threshold_score))
-                    eval_res["raw_cv"] = raw_cv
-                    eval_res["anonymized_cv"] = cv_to_process
-                    st.session_state["eval_results_store"][eval_cache_key] = eval_res
+                    try:
+                        if raw_jd_source["type"] == "pdf":
+                            jd_text = DocumentParser.extract_text_from_pdf(raw_jd_source["bytes"])
+                        else:
+                            jd_text = raw_jd_source["text"]
+                        active_job = DocumentParser.parse_job_description(
+                            jd_text,
+                            api_key=effective_api_key,
+                            provider=selected_provider,
+                            model_name=effective_model
+                        )
+                        st.session_state["parsed_jd_store"][jd_cache_key] = active_job
+                    except Exception as e:
+                        st.error(f"❌ Failed to parse Job Description: {str(e)}")
+                        active_job = None
+                st.session_state["current_active_job"] = active_job
 
-                evaluated_results.append(eval_res)
+            # 2. Parse Candidate CVs
+            candidates_to_process = []
+            if active_job:
+                for item in raw_cv_items:
+                    fname = item["name"]
+                    fbytes = item["bytes"]
+                    cv_cache_key = f"{fname}_{len(fbytes)}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+                    
+                    if cv_cache_key in st.session_state["parsed_cv_store"]:
+                        candidates_to_process.append(st.session_state["parsed_cv_store"][cv_cache_key])
+                    else:
+                        try:
+                            raw_text = DocumentParser.extract_text_from_pdf(fbytes)
+                            parsed_cv = DocumentParser.parse_candidate_cv(
+                                raw_text,
+                                filename=fname,
+                                api_key=effective_api_key,
+                                provider=selected_provider,
+                                model_name=effective_model
+                            )
+                            st.session_state["parsed_cv_store"][cv_cache_key] = parsed_cv
+                            candidates_to_process.append(parsed_cv)
+                        except Exception as e:
+                            st.warning(f"⚠️ File skipped [{fname}]: {str(e)}")
 
-        evaluated_results.sort(key=lambda x: x["overall_score"], reverse=True)
+                # 3. Match & Evaluate Candidates
+                matcher = CandidateMatcherEngine(
+                    api_key=effective_api_key,
+                    provider=selected_provider,
+                    model_name=effective_model
+                )
+                evaluated_results = []
+                for idx, raw_cv in enumerate(candidates_to_process):
+                    cand_name = raw_cv.get("personal_info", {}).get("full_name") or f"Candidate #{idx+1}"
+                    cv_to_process = BlindCVAnonymizer.anonymize_cv(raw_cv, enabled_fields=active_masked_fields) if enable_blind_cv else raw_cv
+                    
+                    eval_cache_key = f"{raw_cv.get('cv_id')}_{active_job.get('job_id')}_{enable_blind_cv}_{'_'.join(sorted(active_masked_fields))}_{w_skill}_{w_exp}_{w_edu}_{threshold_score}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+                    
+                    if eval_cache_key in st.session_state["eval_results_store"]:
+                        eval_res = st.session_state["eval_results_store"][eval_cache_key]
+                    else:
+                        eval_res = matcher.evaluate_candidate(cv_to_process, active_job, weights=custom_weights, threshold=float(threshold_score))
+                        eval_res["raw_cv"] = raw_cv
+                        eval_res["anonymized_cv"] = cv_to_process
+                        st.session_state["eval_results_store"][eval_cache_key] = eval_res
+
+                    evaluated_results.append(eval_res)
+
+                evaluated_results.sort(key=lambda x: x["overall_score"], reverse=True)
 
         tab1, tab2, tab3, tab4 = st.tabs([
             "Leaderboard & Screening Results",
