@@ -320,7 +320,44 @@ with tab_jd_text:
     elif jd_raw_text:
         st.warning("⚠️ Text is too short. Please provide comprehensive job description details.")
 
-# Display extracted/active Job Criteria if already analyzed
+# Button to trigger Preview Job Criteria & display summary
+if raw_jd_source:
+    jd_cache_key = f"{raw_jd_source['type']}_{raw_jd_source.get('name', 'jd')}_{len(raw_jd_source.get('bytes', b'')) if raw_jd_source.get('type') == 'pdf' else hash(raw_jd_source.get('text', ''))}_{effective_model}_{effective_api_key[:6] if effective_api_key else 'offline'}"
+    
+    # Auto-load from memory cache if previously parsed (0ms, 0 API hit)
+    if jd_cache_key in st.session_state["parsed_jd_store"]:
+        active_job = st.session_state["parsed_jd_store"][jd_cache_key]
+        st.session_state["current_active_job"] = active_job
+    else:
+        active_job = st.session_state.get("current_active_job")
+
+    col_btn_prev, col_info_prev = st.columns([1, 2], vertical_alignment="center")
+    with col_btn_prev:
+        if st.button("Preview Job Criteria", type="primary" if not active_job else "secondary", use_container_width=True, help="Extract & preview the job position title, requirements, education, and skills."):
+            if jd_cache_key in st.session_state["parsed_jd_store"]:
+                active_job = st.session_state["parsed_jd_store"][jd_cache_key]
+                st.session_state["current_active_job"] = active_job
+                st.rerun()
+            else:
+                with loading_screen("Loading, please wait...", subtext=f"AI ({provider_choice}) is analyzing Job Description criteria..."):
+                    try:
+                        if raw_jd_source["type"] == "pdf":
+                            jd_text = DocumentParser.extract_text_from_pdf(raw_jd_source["bytes"])
+                        else:
+                            jd_text = raw_jd_source["text"]
+                        active_job = DocumentParser.parse_job_description(
+                            jd_text,
+                            api_key=effective_api_key,
+                            provider=selected_provider,
+                            model_name=effective_model
+                        )
+                        st.session_state["parsed_jd_store"][jd_cache_key] = active_job
+                        st.session_state["current_active_job"] = active_job
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Failed to extract Job Criteria: {str(e)}")
+
+# Display extracted/active Job Criteria
 active_job = st.session_state.get("current_active_job")
 if active_job:
     with st.expander(f"Identified Criteria Summary: **{active_job['title']}**", expanded=True):
