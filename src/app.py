@@ -640,7 +640,12 @@ else:
         progress_bar.empty()
         evaluated_results.sort(key=lambda x: x["overall_score"], reverse=True)
 
-        tab1, tab2, tab3 = st.tabs(["🏆 Leaderboard & Screening Results", "🛡️ Blind-CV Anonymization", "📊 Analytics & Distribution"])
+        tab1, tab2, tab3, tab4 = st.tabs([
+            "🏆 Leaderboard & Screening Results",
+            "🛡️ Blind-CV Anonymization",
+            "📊 Analytics & Distribution",
+            "📑 Summary"
+        ])
 
         with tab1:
             st.subheader(f"Candidate Evaluation Results for: {active_job['title']}")
@@ -1050,5 +1055,114 @@ else:
                     } for c in evaluated_results
                 ])
                 st.bar_chart(df_plot.set_index("Candidate"))
+
+        with tab4:
+            st.subheader("📑 Candidate Evaluation Summary Table")
+            st.caption("Tabel ringkasan menyeluruh dari hasil penapisan kandidat yang dapat difilter dan diekspor ke dalam format CSV maupun Excel (.xlsx).")
+
+            # Construct Summary DataFrame
+            summary_rows = []
+            for rank, c in enumerate(evaluated_results, start=1):
+                p_info = c.get("raw_cv", {}).get("personal_info", {})
+                full_name = p_info.get("full_name") or c.get("candidate_alias") or c.get("cv_id", f"Candidate #{rank}")
+                alias = c.get("candidate_alias", f"CANDIDATE-{rank:02d}")
+                email = p_info.get("email", "-")
+                phone = p_info.get("phone", "-")
+                domicile = p_info.get("address", "-")
+                
+                score_bd = c.get("score_breakdown", {})
+                overall_s = c.get("overall_score", 0.0)
+                skill_s = score_bd.get("skill_match", 0.0)
+                exp_s = score_bd.get("experience_depth", 0.0)
+                edu_s = score_bd.get("education", score_bd.get("education_tier", 0.0))
+                
+                status_raw = c.get("status", "Rejected")
+                
+                summary_rows.append({
+                    "Rank": f"#{rank}",
+                    "Candidate Name": full_name,
+                    "Candidate Alias": alias,
+                    "Email": email,
+                    "Phone": phone,
+                    "Domicile": domicile,
+                    "Overall Match Score (%)": overall_s,
+                    "Skill Match (%)": skill_s,
+                    "Experience Depth (%)": exp_s,
+                    "Education (%)": edu_s,
+                    "Status": status_raw
+                })
+
+            df_summary = pd.DataFrame(summary_rows)
+
+            # Controls: Filter and Export Buttons
+            col_filter, col_spacer, col_exp1, col_exp2 = st.columns([2, 1, 1, 1], vertical_alignment="bottom")
+            with col_filter:
+                status_filter = st.selectbox(
+                    "Filter Candidate Status:",
+                    ["All Statuses", "Pass Only", "Considered Only", "Rejected Only"]
+                )
+            
+            df_filtered = df_summary.copy()
+            if status_filter == "Pass Only":
+                df_filtered = df_filtered[df_filtered["Status"] == "Pass"]
+            elif status_filter == "Considered Only":
+                df_filtered = df_filtered[df_filtered["Status"] == "Considered"]
+            elif status_filter == "Rejected Only":
+                df_filtered = df_filtered[df_filtered["Status"] == "Rejected"]
+
+            # Export to CSV
+            csv_data = df_filtered.to_csv(index=False).encode('utf-8')
+            with col_exp1:
+                st.download_button(
+                    label="📥 Export CSV",
+                    data=csv_data,
+                    file_name=f"Candidate_Screening_Summary_{active_job.get('job_id', 'job')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+
+            # Export to Excel (.xlsx)
+            import io
+            excel_buffer = io.BytesIO()
+            with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                df_filtered.to_excel(writer, index=False, sheet_name="Screening Summary")
+            excel_data = excel_buffer.getvalue()
+
+            with col_exp2:
+                st.download_button(
+                    label="📊 Export Excel (.xlsx)",
+                    data=excel_data,
+                    file_name=f"Candidate_Screening_Summary_{active_job.get('job_id', 'job')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+
+            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+            
+            # Interactive Streamlit Dataframe with Progress Bars and Clean Format
+            st.dataframe(
+                df_filtered,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Rank": st.column_config.TextColumn("Rank", width="small"),
+                    "Candidate Name": st.column_config.TextColumn("Candidate Name", width="medium"),
+                    "Candidate Alias": st.column_config.TextColumn("Candidate Alias", width="small"),
+                    "Email": st.column_config.TextColumn("Email", width="medium"),
+                    "Phone": st.column_config.TextColumn("Phone", width="small"),
+                    "Domicile": st.column_config.TextColumn("Domicile", width="small"),
+                    "Overall Match Score (%)": st.column_config.ProgressColumn(
+                        "Overall Match Score (%)",
+                        format="%.1f%%",
+                        min_value=0,
+                        max_value=100,
+                        width="medium"
+                    ),
+                    "Skill Match (%)": st.column_config.NumberColumn("Skill Match (%)", format="%.1f%%"),
+                    "Experience Depth (%)": st.column_config.NumberColumn("Experience Depth (%)", format="%.1f%%"),
+                    "Education (%)": st.column_config.NumberColumn("Education (%)", format="%.1f%%"),
+                    "Status": st.column_config.TextColumn("Status", width="small")
+                }
+            )
 
 st.caption("Autonomous Candidate Screening Platform v1.6.0 | AI Specialist Technical Assessment")
