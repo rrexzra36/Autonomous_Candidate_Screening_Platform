@@ -325,6 +325,7 @@ class CandidateMatcherEngine:
                 "skill_match": round(skill_score, 1),
                 "semantic_similarity": round(semantic_score, 1),
                 "experience_depth": round(exp_score, 1),
+                "education": round(education_score, 1),
                 "education_tier": round(education_score, 1)
             },
             "matched_skills": matched_skills,

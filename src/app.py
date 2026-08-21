@@ -669,7 +669,7 @@ else:
                 with st.container(border=True):
                     st.markdown(f"#### #{rank} **{real_name}**{alias_label} — Match Score: **{item['overall_score']}%**")
                     
-                    col_a, col_b = st.columns(2)
+                    col_a, col_b, col_c, col_d = st.columns(4)
                     status_val = item["status"]
                     if status_val == "Pass":
                         status_styled = '<span style="color:#16a34a; font-weight:bold; font-size:1.05rem;">Pass</span>'
@@ -678,8 +678,11 @@ else:
                     else:
                         status_styled = '<span style="color:#dc2626; font-weight:bold; font-size:1.05rem;">Rejected</span>'
                     
-                    col_a.markdown(f"📌 **Recommendation Status:** {status_styled}", unsafe_allow_html=True)
-                    col_b.markdown(f"🎯 **Skill Compatibility:** `{item['score_breakdown']['skill_match']}%`")
+                    edu_card_val = item["score_breakdown"].get("education", item["score_breakdown"].get("education_tier", 0.0))
+                    col_a.markdown(f"📌 **Status:** {status_styled}", unsafe_allow_html=True)
+                    col_b.markdown(f"🎯 **Skill Match:** `{item['score_breakdown']['skill_match']}%`")
+                    col_c.markdown(f"💼 **Experience Depth:** `{item['score_breakdown']['experience_depth']}%`")
+                    col_d.markdown(f"🎓 **Education:** `{edu_card_val}%`")
                     
                     with st.expander("Review"):
                         active_profile = item["raw_cv"]
@@ -789,7 +792,7 @@ else:
 
         with tab3:
             st.subheader("📊 Candidate Score Distribution Analytics (Scale 0 - 100%)")
-            st.caption("Visualisasi perbandingan distribusi nilai match score kandidat dalam skala 0 - 100% yang mencakup Overall Fit Score, Skill Compatibility, Experience Relevance, dan Education & Major Alignment.")
+            st.caption("Visualisasi perbandingan distribusi nilai match score kandidat dalam skala 0 - 100% yang mencakup Overall Match Score, Skill Match, Experience Depth, dan Education.")
             
             # --- 1. Metric Summary Cards ---
             passed_cands = [c for c in evaluated_results if c["status"] == "Pass"]
@@ -828,7 +831,7 @@ else:
                 overall_scores = [c["overall_score"] for c in evaluated_results]
                 skill_scores = [c["score_breakdown"].get("skill_match", 0.0) for c in evaluated_results]
                 exp_scores = [c["score_breakdown"].get("experience_depth", 0.0) for c in evaluated_results]
-                edu_scores = [c["score_breakdown"].get("education_level", 0.0) for c in evaluated_results]
+                edu_scores = [c["score_breakdown"].get("education", c["score_breakdown"].get("education_tier", 0.0)) for c in evaluated_results]
                 statuses = [c["status"] for c in evaluated_results]
 
                 w_s = custom_weights.get("skill", 50.0) / 100.0
@@ -837,14 +840,13 @@ else:
 
                 if chart_view == "📊 Stacked Composite Contribution (0 - 100%)":
                     st.info(
-                        f"💡 **Penjelasan Grafik Stacked Bar (Skala 0 - 100%):** Tiap batang bar merepresentasikan total **Match Score** kandidat yang terbentuk dari akumulasi 3 komponen terbobot: "
-                        f"**Skill Compatibility** ({int(w_s*100)}% bobot), **Experience Relevance** ({int(w_e*100)}% bobot), dan **Education & Major** ({int(w_ed*100)}% bobot)."
+                        f"💡 **Penjelasan Grafik Stacked Bar (Skala 0 - 100%):** Tiap batang bar merepresentasikan total **Overall Match Score** kandidat yang terbentuk dari akumulasi 3 komponen terbobot: "
+                        f"**Skill Match** ({int(w_s*100)}% bobot), **Experience Depth** ({int(w_e*100)}% bobot), dan **Education** ({int(w_ed*100)}% bobot)."
                     )
 
                     skill_pts, exp_pts, edu_pts = [], [], []
                     for i in range(len(evaluated_results)):
                         raw_comp_sum = (skill_scores[i] * w_s) + (exp_scores[i] * w_e) + (edu_scores[i] * w_ed)
-                        # Account for penalty scaling if present
                         factor = (overall_scores[i] / raw_comp_sum) if raw_comp_sum > 0 and overall_scores[i] != raw_comp_sum else 1.0
                         skill_pts.append(round(skill_scores[i] * w_s * factor, 1))
                         exp_pts.append(round(exp_scores[i] * w_e * factor, 1))
@@ -853,36 +855,36 @@ else:
                     fig_stacked = go.Figure()
 
                     fig_stacked.add_trace(go.Bar(
-                        name=f"Skill Match Contribution ({int(w_s*100)}% wt)",
+                        name=f"Skill Match ({int(w_s*100)}% wt)",
                         x=candidates_labels,
                         y=skill_pts,
-                        text=[f"+{v:.1f}%" if v >= 4.0 else "" for v in skill_pts],
+                        text=[f"+{v:.1f}%" if v >= 3.0 else "" for v in skill_pts],
                         textposition="inside",
                         marker_color="#3498db",
                         customdata=skill_scores,
-                        hovertemplate="<b>%{x}</b><br>Skill Match Component:<br>• Raw Score: %{customdata:.1f}%<br>• Weighted Contribution: <b>+%{y:.1f}% pts</b><extra></extra>"
+                        hovertemplate="<b>%{x}</b><br>Skill Match:<br>• Raw Score: %{customdata:.1f}%<br>• Weighted Contribution: <b>+%{y:.1f}% pts</b><extra></extra>"
                     ))
 
                     fig_stacked.add_trace(go.Bar(
-                        name=f"Experience Relevance ({int(w_e*100)}% wt)",
+                        name=f"Experience Depth ({int(w_e*100)}% wt)",
                         x=candidates_labels,
                         y=exp_pts,
-                        text=[f"+{v:.1f}%" if v >= 4.0 else "" for v in exp_pts],
+                        text=[f"+{v:.1f}%" if v >= 3.0 else "" for v in exp_pts],
                         textposition="inside",
                         marker_color="#f39c12",
                         customdata=exp_scores,
-                        hovertemplate="<b>%{x}</b><br>Experience Component:<br>• Raw Score: %{customdata:.1f}%<br>• Weighted Contribution: <b>+%{y:.1f}% pts</b><extra></extra>"
+                        hovertemplate="<b>%{x}</b><br>Experience Depth:<br>• Raw Score: %{customdata:.1f}%<br>• Weighted Contribution: <b>+%{y:.1f}% pts</b><extra></extra>"
                     ))
 
                     fig_stacked.add_trace(go.Bar(
-                        name=f"Education & Major ({int(w_ed*100)}% wt)",
+                        name=f"Education ({int(w_ed*100)}% wt)",
                         x=candidates_labels,
                         y=edu_pts,
-                        text=[f"+{v:.1f}%" if v >= 4.0 else "" for v in edu_pts],
+                        text=[f"+{v:.1f}%" if v >= 3.0 else "" for v in edu_pts],
                         textposition="inside",
                         marker_color="#9b59b6",
                         customdata=edu_scores,
-                        hovertemplate="<b>%{x}</b><br>Education Component:<br>• Raw Score: %{customdata:.1f}%<br>• Weighted Contribution: <b>+%{y:.1f}% pts</b><extra></extra>"
+                        hovertemplate="<b>%{x}</b><br>Education:<br>• Raw Score: %{customdata:.1f}%<br>• Weighted Contribution: <b>+%{y:.1f}% pts</b><extra></extra>"
                     ))
 
                     # Top of bar annotations with Total Match Score
@@ -934,37 +936,37 @@ else:
                         text=[f"{v}%" for v in overall_scores],
                         textposition="auto",
                         marker_color="#2ecc71",
-                        hovertemplate="<b>%{x}</b><br>Overall Score: %{y:.1f}%<extra></extra>"
+                        hovertemplate="<b>%{x}</b><br>Overall Match Score: %{y:.1f}%<extra></extra>"
                     ))
 
                     fig_grouped.add_trace(go.Bar(
-                        name="Skill Compatibility",
+                        name="Skill Match",
                         x=candidates_labels,
                         y=skill_scores,
                         text=[f"{v}%" for v in skill_scores],
                         textposition="auto",
                         marker_color="#3498db",
-                        hovertemplate="<b>%{x}</b><br>Skill Score: %{y:.1f}%<extra></extra>"
+                        hovertemplate="<b>%{x}</b><br>Skill Match: %{y:.1f}%<extra></extra>"
                     ))
 
                     fig_grouped.add_trace(go.Bar(
-                        name="Experience Domain Relevance",
+                        name="Experience Depth",
                         x=candidates_labels,
                         y=exp_scores,
                         text=[f"{v}%" for v in exp_scores],
                         textposition="auto",
                         marker_color="#f39c12",
-                        hovertemplate="<b>%{x}</b><br>Experience Score: %{y:.1f}%<extra></extra>"
+                        hovertemplate="<b>%{x}</b><br>Experience Depth: %{y:.1f}%<extra></extra>"
                     ))
 
                     fig_grouped.add_trace(go.Bar(
-                        name="Education & Major Relevance",
+                        name="Education",
                         x=candidates_labels,
                         y=edu_scores,
                         text=[f"{v}%" for v in edu_scores],
                         textposition="auto",
                         marker_color="#9b59b6",
-                        hovertemplate="<b>%{x}</b><br>Education Score: %{y:.1f}%<extra></extra>"
+                        hovertemplate="<b>%{x}</b><br>Education: %{y:.1f}%<extra></extra>"
                     ))
 
                     fig_grouped.add_hline(
@@ -995,9 +997,9 @@ else:
 
                 elif chart_view == "🕸️ Competency Radar Analysis (0 - 100%)":
                     if len(evaluated_results) >= 2:
-                        st.caption("Perbandingan dimensi kompetensi kandidat (Skill, Pengalaman Relevan, Pendidikan) dalam visualisasi Radar Chart (Skala 0 - 100%).")
+                        st.caption("Perbandingan dimensi kompetensi kandidat (Skill Match, Experience Depth, Education, Overall Match Score) dalam visualisasi Radar Chart (Skala 0 - 100%).")
                         
-                        categories = ["Skill Compatibility", "Experience Relevance", "Education & Major", "Overall Fit"]
+                        categories = ["Skill Match", "Experience Depth", "Education", "Overall Match Score"]
                         fig_radar = go.Figure()
                         
                         for c in evaluated_results[:5]:  # Top 5 candidates
@@ -1005,7 +1007,7 @@ else:
                             r_vals = [
                                 c["score_breakdown"].get("skill_match", 0.0),
                                 c["score_breakdown"].get("experience_depth", 0.0),
-                                c["score_breakdown"].get("education_level", 0.0),
+                                c["score_breakdown"].get("education", c["score_breakdown"].get("education_tier", 0.0)),
                                 c["overall_score"]
                             ]
                             r_vals.append(r_vals[0])  # close the polygon
@@ -1038,10 +1040,10 @@ else:
                 df_plot = pd.DataFrame([
                     {
                         "Candidate": c["candidate_alias"] if enable_blind_cv else c["raw_cv"]["personal_info"].get("full_name", c["cv_id"]),
-                        "Overall Score (%)": c["overall_score"],
-                        "Skill Match Score (%)": c["score_breakdown"]["skill_match"],
-                        "Experience Score (%)": c["score_breakdown"]["experience_depth"],
-                        "Education Score (%)": c["score_breakdown"].get("education_level", 0.0)
+                        "Overall Match Score (%)": c["overall_score"],
+                        "Skill Match (%)": c["score_breakdown"].get("skill_match", 0.0),
+                        "Experience Depth (%)": c["score_breakdown"].get("experience_depth", 0.0),
+                        "Education (%)": c["score_breakdown"].get("education", c["score_breakdown"].get("education_tier", 0.0))
                     } for c in evaluated_results
                 ])
                 st.bar_chart(df_plot.set_index("Candidate"))
