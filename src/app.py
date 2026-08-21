@@ -331,7 +331,16 @@ if raw_jd_source:
     else:
         active_job = st.session_state.get("current_active_job")
 
-    col_btn_prev, col_info_prev = st.columns([1, 2], vertical_alignment="center")
+    col_space, col_reset_prev, col_btn_prev = st.columns([2, 1, 1], vertical_alignment="center")
+    with col_reset_prev:
+        if st.button("Reset Job", key="btn_reset_active_jd", use_container_width=True, help="Reset the uploaded Job Description and criteria."):
+            st.session_state["jd_uploader_key"] += 1
+            st.session_state["drive_jd_file"] = None
+            st.session_state["jd_text_area"] = ""
+            st.session_state["executed_config_sig"] = ""
+            st.session_state["parsed_jd_store"].clear()
+            st.session_state["current_active_job"] = None
+            st.rerun()
     with col_btn_prev:
         if st.button("Preview Job Criteria", type="primary" if not active_job else "secondary", use_container_width=True, help="Extract & preview the job position title, requirements, education, and skills."):
             if jd_cache_key in st.session_state["parsed_jd_store"]:
