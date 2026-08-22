@@ -407,11 +407,16 @@ Platform mengintegrasikan 5 algoritma AI/NLP komprehensif:
 ---
 
 ### 4.2 Algoritma 2: Dense Semantic Vector Embeddings & Non-Linear Cosine Similarity
-* **Definisi:** Transformasi representasi teks lowongan ($u$) dan profil kandidat ($v$) ke dalam ruang vektor berdimensi tinggi (*768-dim* pada Google Gemini `text-embedding-004` atau *1536-dim* pada OpenAI `text-embedding-3-small`).
-* **Formula Cosine Similarity:**
-  $$\text{Cosine Similarity} = \cos(\theta) = \frac{u \cdot v}{\|u\|_2 \cdot \|v\|_2} = \frac{\sum_{i=1}^n u_i v_i}{\sqrt{\sum_{i=1}^n u_i^2} \cdot \sqrt{\sum_{i=1}^n v_i^2}}$$
-* **Formula Normalisasi Non-Linear ($S_{\text{semantic}}$):**
-  $$S_{\text{semantic}} = \min\left(100.0, \; \max\left(0.0, \; \frac{\cos(\theta) \times 100 - 35.0}{0.55}\right)\right)$$
+Transformasi representasi teks lowongan ($u$) dan profil kandidat ($v$) ke dalam ruang vektor berdimensi tinggi (*768-dim* pada Google Gemini `text-embedding-004` atau *1536-dim* pada OpenAI `text-embedding-3-small`).
+
+- **Cosine Similarity:**
+  ```
+  Cosine Similarity = (u · v) / (||u|| * ||v||)
+  ```
+- **Normalisasi Skor Semantik ($S_{\text{semantic}}$):**
+  ```
+  S_semantic = min(100.0, max(0.0, ((Cosine_Similarity * 100) - 35.0) / 0.55))
+  ```
 
 ---
 
@@ -419,54 +424,67 @@ Platform mengintegrasikan 5 algoritma AI/NLP komprehensif:
 
 #### A. Tier 1: Deterministic Hard Filter (Knockout Criteria)
 Tahap validasi syarat mutlak sebelum pembobotan komposit dihitung:
-$$\text{HardFilterPassed} = \left( \sum_{i} \text{Duration}_i \ge \text{MinExp} \right) \land \left( \forall c \in \text{MandatoryCerts}, \; c \in \text{CandidateCerts} \right)$$
-*Jika gagal, kandidat otomatis dikenakan penalti pemotongan nilai akhir sebesar 50%.*
+- **Kondisi Lolos:** Total durasi pengalaman kerja $\ge$ `MinExp` dan seluruh sertifikasi wajib terpenuhi.
+- **Penalti:** Jika tidak lolos, kandidat otomatis dikenakan penalti pemotongan skor akhir sebesar **50%**.
 
 #### B. Tier 2: Perhitungan Komponen Penilaian Terstruktur
 
 ##### 1. Parameter Kecocokan Keahlian ($S_{\text{skill}}$) — Decoupled Skills Architecture
 Keahlian teknis (*Hard Tools*) dipisahkan secara tegas dari *Soft Skills*:
-- Rasio Kecocokan Teknis: $R_{\text{tech}} = \frac{N_{\text{matched\_tech}}}{\max(N_{\text{jd\_tech}}, 1)}$
-- Rasio Kecocokan Soft Skills: $R_{\text{soft}} = \frac{N_{\text{matched\_soft}}}{\max(N_{\text{jd\_soft}}, 1)}$
+- `R_tech = Matched_Tech_Skills / max(Total_JD_Tech_Skills, 1)`
+- `R_soft = Matched_Soft_Skills / max(Total_JD_Soft_Skills, 1)`
 
 **Aturan Penilaian Keahlian:**
-- Jika $N_{\text{matched\_tech}} = 0$:
-  $$S_{\text{skill}} = \min\Big(15.0, \; (R_{\text{soft}} \times 10.0) + (S_{\text{semantic}} \times 0.05)\Big)$$
-- Jika $N_{\text{matched\_tech}} > 0$:
-  $$S_{\text{skill}} = (R_{\text{tech}} \times 75.0) + (R_{\text{soft}} \times 15.0) + (\min(100, S_{\text{semantic}}) \times 0.10)$$
+- **Jika `Matched_Tech_Skills == 0`:**
+  ```
+  S_skill = min(15.0, (R_soft * 10.0) + (S_semantic * 0.05))
+  ```
+- **Jika `Matched_Tech_Skills > 0`:**
+  ```
+  S_skill = (R_tech * 75.0) + (R_soft * 15.0) + (min(100.0, S_semantic) * 0.10)
+  ```
 
 ##### 2. Parameter Relevansi Pengalaman Kerja Domain ($S_{\text{exp}}$)
 Sistem mengekstrak himpunan kata kunci domain profesi ($D$) dari lowongan kerja dan menghitung durasi relevan:
-$$\text{Years}_{\text{relevant}} = \sum_{i} \left( \text{Duration}_i \times \text{Relevance}_i \right)$$
-
-- Jika $\text{Years}_{\text{relevant}} > 0$:
-  $$S_{\text{exp}} = \min\left(100.0, \; \frac{\text{Years}_{\text{relevant}}}{\text{MinExp}} \times 100.0\right)$$
-- Jika $\text{Years}_{\text{relevant}} = 0$:
-  $$S_{\text{exp}} = \min\left(10.0, \; \frac{\sum \text{Duration}_i}{\text{MinExp}} \times 10.0\right)$$
+```
+Years_relevant = sum(Duration_i * Relevance_i)
+```
+- **Jika `Years_relevant > 0`:**
+  ```
+  S_exp = min(100.0, (Years_relevant / MinExp) * 100.0)
+  ```
+- **Jika `Years_relevant == 0`:**
+  ```
+  S_exp = min(10.0, (Total_Duration / MinExp) * 10.0)
+  ```
 
 ##### 3. Parameter Pendidikan & Keselarasan Jurusan ($S_{\text{edu}}$)
-$$S_{\text{edu}} = (S_{\text{deg\_level}} \times 0.40) + (S_{\text{major\_relevance}} \times 0.60)$$
-- **Skor Jenjang ($S_{\text{deg\_level}}$):** S2/Master = 100.0, S1/Bachelor = 90.0, D3/Diploma = 80.0, Jenjang lebih rendah = 45.0–50.0.
-- **Skor Keselarasan Jurusan ($S_{\text{major\_relevance}}$):**
+```
+S_edu = (S_deg_level * 0.40) + (S_major_relevance * 0.60)
+```
+- **Skor Jenjang (`S_deg_level`):** S2/Master = 100.0, S1/Bachelor = 90.0, D3/Diploma = 80.0, Jenjang lebih rendah = 45.0–50.0.
+- **Skor Keselarasan Jurusan (`S_major_relevance`):**
   - Jurusan Selaras Sempurna (misal: *Teknik Arsitektur*): **95.0**
   - Rumpun Teknik Terkait / Engineering (misal: *Teknik Sipil*): **65.0**
   - Rumpun Desain/Bangunan Terkait (misal: *Desain Interior*): **55.0**
   - Jurusan Lintas Disiplin / Tidak Relevan: **20.0**
 
 #### C. Pembobotan Komposit & Penalti Mismatch Kritis
-Skor mentah dihitung berdasarkan bobot dinamis ($W_{\text{skill}}, W_{\text{exp}}, W_{\text{edu}}$):
-$$S_{\text{raw}} = (S_{\text{skill}} \times W_{\text{skill}}) + (S_{\text{exp}} \times W_{\text{exp}}) + (S_{\text{edu}} \times W_{\text{edu}})$$
+Skor mentah dihitung berdasarkan bobot dinamis:
+```
+S_raw = (S_skill * W_skill) + (S_exp * W_exp) + (S_edu * W_edu)
+```
 *(Bobot Default Standar Industri: $W_{\text{skill}} = 0.50, W_{\text{exp}} = 0.30, W_{\text{edu}} = 0.20$)*
 
 **Critical Cross-Domain Mismatch Capping Filter:**
 Jika kandidat memiliki **0 technical skill relevan** DAN **0 tahun pengalaman kerja relevan**:
-- Jika $S_{\text{major}} \le 50.0$ (Jurusan berbeda total): $S_{\text{overall}} = \min(22.0, \; S_{\text{raw}})$
-- Jika $S_{\text{major}} > 50.0$: $S_{\text{overall}} = \min(28.0, \; S_{\text{raw}})$
-- Kandidat dalam domain relevan: $S_{\text{overall}} = S_{\text{raw}}$
+- Jika `S_major <= 50.0` (Jurusan berbeda total): `S_overall = min(22.0, S_raw)`
+- Jika `S_major > 50.0`: `S_overall = min(28.0, S_raw)`
+- Kandidat dalam domain relevan: `S_overall = S_raw`
 
 #### D. Klasifikasi Keputusan Rekomendasi
-- **Pass:** $S_{\text{overall}} \ge \text{Threshold} \land \text{HardFilterPassed}$
-- **Considered:** $S_{\text{overall}} \ge \max(\text{Threshold} - 15.0, \; 45.0)$
+- **Pass:** `S_overall >= Threshold` dan memenuhi syarat mutlak (*Hard Filter*).
+- **Considered:** `S_overall >= max(Threshold - 15.0, 45.0)`.
 - **Rejected:** Di bawah batas Considered atau tidak memenuhi syarat mutlak.
 
 ---
