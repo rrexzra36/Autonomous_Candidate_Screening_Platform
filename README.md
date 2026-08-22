@@ -114,66 +114,88 @@ Algoritma segmentasi tata letak dokumen yang memotong teks CV ke dalam blok sema
 - `P_cert` = `(?:CERTIFICATIONS|CERTIFICATES|SERTIFIKAT|ACHIEVEMENTS)`
 
 ### 2. Dense Semantic Vector Embeddings & Cosine Similarity
-Pemetaan representasi teks profil lowongan kerja ($u$) dan profil pelamar ($v$) ke dalam ruang vektor berdimensi tinggi (*768-dim* pada Gemini `text-embedding-004` atau *1536-dim* pada OpenAI `text-embedding-3-small`):
+Pemetaan representasi teks profil lowongan kerja ($\mathbf{u}$) dan profil pelamar ($\mathbf{v}$) ke dalam ruang vektor berdimensi tinggi (*768-dim* pada Gemini `text-embedding-004` atau *1536-dim* pada OpenAI `text-embedding-3-small`):
 
-- **Cosine Similarity:**
-  ```
-  Cosine Similarity = (u · v) / (||u|| * ||v||)
-  ```
-- **Normalisasi Skor Semantik ($S_{\text{semantic}}$):**
-  ```
-  S_semantic = min(100.0, max(0.0, ((Cosine_Similarity * 100) - 35.0) / 0.55))
-  ```
+- **Formula Cosine Similarity:**
+
+$$
+\cos(\theta) = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\|_2 \|\mathbf{v}\|_2} = \frac{\sum_{i=1}^n u_i v_i}{\sqrt{\sum_{i=1}^n u_i^2} \cdot \sqrt{\sum_{i=1}^n v_i^2}}
+$$
+
+- **Formula Normalisasi Non-Linear ($S_{\text{semantic}}$):**
+
+$$
+S_{\text{semantic}} = \min\left(100.0, \; \max\left(0.0, \; \frac{\cos(\theta) \times 100 - 35.0}{0.55}\right)\right)
+$$
 
 ### 3. Decoupled Skills Matching ($S_{\text{skill}}$)
 Keahlian teknis (*Hard Skills*) dipisahkan secara tegas dari *Soft Skills* untuk mencegah pelamar tanpa keahlian inti lolos seleksi:
-- `R_tech = Matched_Tech_Skills / max(Total_JD_Tech_Skills, 1)`
-- `R_soft = Matched_Soft_Skills / max(Total_JD_Soft_Skills, 1)`
+
+$$
+R_{\text{tech}} = \frac{N_{\text{matched\_tech}}}{\max(N_{\text{jd\_tech}}, 1)}, \quad R_{\text{soft}} = \frac{N_{\text{matched\_soft}}}{\max(N_{\text{jd\_soft}}, 1)}
+$$
 
 **Formula Penilaian Keahlian:**
-- **Jika `Matched_Tech_Skills == 0`:**
-  ```
-  S_skill = min(15.0, (R_soft * 10.0) + (S_semantic * 0.05))
-  ```
-- **Jika `Matched_Tech_Skills > 0`:**
-  ```
-  S_skill = (R_tech * 75.0) + (R_soft * 15.0) + (min(100.0, S_semantic) * 0.10)
-  ```
+
+$$
+S_{\text{skill}} = 
+\begin{cases} 
+\min\left(15.0, \; (R_{\text{soft}} \times 10.0) + (S_{\text{semantic}} \times 0.05)\right), & \text{jika } N_{\text{matched\_tech}} = 0 \\
+(R_{\text{tech}} \times 75.0) + (R_{\text{soft}} \times 15.0) + (\min(100.0, S_{\text{semantic}}) \times 0.10), & \text{jika } N_{\text{matched\_tech}} > 0 
+\end{cases}
+$$
 
 ### 4. Domain Experience Relevance ($S_{\text{exp}}$) & Education ($S_{\text{edu}}$)
 Pengalaman kerja dinilai berdasarkan keselarasan kata kunci domain profesi ($D$):
-```
-Years_relevant = sum(Duration_i * Relevance_i)
-```
-- **Jika `Years_relevant > 0`:**
-  ```
-  S_exp = min(100.0, (Years_relevant / MinExp) * 100.0)
-  ```
-- **Jika `Years_relevant == 0`:**
-  ```
-  S_exp = min(10.0, (Total_Duration / MinExp) * 10.0)
-  ```
 
-- **Pendidikan & Jurusan:**
-  ```
-  S_edu = (S_deg_level * 0.40) + (S_major_relevance * 0.60)
-  ```
+$$
+\text{Years}_{\text{relevant}} = \sum_{i} \left( \text{Duration}_i \times \text{Relevance}_i \right)
+$$
+
+$$
+S_{\text{exp}} = 
+\begin{cases} 
+\min\left(100.0, \; \frac{\text{Years}_{\text{relevant}}}{\text{MinExp}} \times 100.0\right), & \text{jika } \text{Years}_{\text{relevant}} > 0 \\
+\min\left(10.0, \; \frac{\sum \text{Duration}_i}{\text{MinExp}} \times 10.0\right), & \text{jika } \text{Years}_{\text{relevant}} = 0 
+\end{cases}
+$$
+
+$$
+S_{\text{edu}} = (S_{\text{deg\_level}} \times 0.40) + (S_{\text{major\_relevance}} \times 0.60)
+$$
 
 ### 5. Critical Domain Mismatch Filter & Status Rekomendasi
 Skor komposit mentah dihitung berdasarkan bobot dinamis:
-```
-S_raw = (S_skill * W_skill) + (S_exp * W_exp) + (S_edu * W_edu)
-```
+
+$$
+S_{\text{raw}} = (S_{\text{skill}} \times W_{\text{skill}}) + (S_{\text{exp}} \times W_{\text{exp}}) + (S_{\text{edu}} \times W_{\text{edu}})
+$$
+
+$$
+W_{\text{skill}} = 0.50, \quad W_{\text{exp}} = 0.30, \quad W_{\text{edu}} = 0.20 \quad \text{(Bobot Standar Default)}
+$$
 
 Jika kandidat memiliki **0 technical skill relevan** dan **0 tahun pengalaman kerja relevan**:
-- Jika `S_major <= 50.0` (Jurusan berbeda total): `S_overall = min(22.0, S_raw)`
-- Jika `S_major > 50.0`: `S_overall = min(28.0, S_raw)`
-- Kandidat dalam domain relevan: `S_overall = S_raw`
+
+$$
+S_{\text{overall}} = 
+\begin{cases} 
+\min(22.0, \; S_{\text{raw}}), & \text{jika } S_{\text{major}} \le 50.0 \text{ (Jurusan berbeda total)} \\
+\min(28.0, \; S_{\text{raw}}), & \text{jika } S_{\text{major}} > 50.0 \\
+S_{\text{raw}}, & \text{kandidat dalam domain relevan}
+\end{cases}
+$$
 
 **Klasifikasi Status:**
-- **Pass:** `S_overall >= Threshold` dan memenuhi syarat mutlak (*Hard Filter*).
-- **Considered:** `S_overall >= max(Threshold - 15.0, 45.0)`.
-- **Rejected:** Di bawah batas Considered atau tidak memenuhi kualifikasi mutlak.
+
+$$
+\text{Status} = 
+\begin{cases} 
+\mathbf{Pass}, & \text{jika } S_{\text{overall}} \ge \text{Threshold} \land \text{HardFilterPassed} \\
+\mathbf{Considered}, & \text{jika } S_{\text{overall}} \ge \max(\text{Threshold} - 15.0, \; 45.0) \\
+\mathbf{Rejected}, & \text{lainnya}
+\end{cases}
+$$
 
 ---
 
