@@ -3,13 +3,13 @@
 
 | Metadata | Detail |
 | :--- | :--- |
-| **Document Title** | Autonomous Candidate Screening Platform — Comprehensive PRD |
+| **Document Title** | Autonomous Candidate Screening Platform — Product Requirement Document |
 | **Project Name** | TalentAI Screening & Evaluation Engine |
 | **Author** | AI/ML Specialist Candidate |
 | **Target Audience** | Technical Assessors, Hiring Managers, HR Executives, Software Engineers, AI/ML Engineers |
-| **Document Version** | v2.2.0 (Production-Ready Architecture) |
+| **Document Version** | v2.3.0 (Production-Ready Architecture) |
 | **Status** | Approved & Fully Implemented |
-| **Repository Path** | `D:\Github\Autonomous_Candidate_Screening_Platform` |
+| **Repository** | `rrexzra36/Autonomous_Candidate_Screening_Platform` |
 | **Last Updated** | 22 Agustus 2026 |
 
 ---
@@ -18,40 +18,33 @@
 1. [Executive Summary & Business Context](#1-executive-summary--business-context)
    - 1.1 Latar Belakang & Problem Statement
    - 1.2 Visi & Nilai Solusi Produk
-   - 1.3 Strategic Objectives & Key Performance Indicators (KPIs)
-2. [User Personas & Complete User Journeys](#2-user-personas--complete-user-journeys)
+   - 1.3 Key Performance Indicators (KPIs)
+2. [User Personas & End-to-End User Journey](#2-user-personas--end-to-end-user-journey)
    - 2.1 Target User Personas
-   - 2.2 End-to-End User Journey Map (Mermaid Sequence Diagram)
-   - 2.3 System State Lifecycle (Mermaid State Diagram)
+   - 2.2 End-to-End User Journey Map
 3. [System Architecture & Data Engineering](#3-system-architecture--data-engineering)
    - 3.1 Layered Architectural Diagram
    - 3.2 Core Component Breakdown & Responsibilities
-   - 3.3 Data Schemas & Data Contracts (JD, Raw CV, Blind-CV, Evaluation Result)
-4. [Spesifikasi Algoritma & Formula Matematis Mendalam](#4-spesifikasi-algoritma--formula-matematis-mendalam)
+   - 3.3 Data Contracts & Schemas
+4. [Spesifikasi Algoritma & Formula Penilaian](#4-spesifikasi-algoritma--formula-penilaian)
    - 4.1 Algoritma 1: Layout-Aware Hierarchical Section Chunking
-   - 4.2 Algoritma 2: Dense Semantic Vector Embeddings & Non-Linear Cosine Similarity
+   - 4.2 Algoritma 2: Dense Semantic Vector Embeddings & Cosine Similarity
    - 4.3 Algoritma 3: Multi-Tier Anti-Hallucination Candidate Matching & Domain Scoring
    - 4.4 Algoritma 4: Ethical Blind PII Anonymization Engine (Anti-Bias Shield)
-   - 4.5 Algoritma 5: Explainable AI (XAI) & Chain-of-Thought (CoT) Synthesis
+   - 4.5 Algoritma 5: Explainable AI (XAI) Synthesis Engine
 5. [Functional Requirements (FRD) & Feature Matrix](#5-functional-requirements-frd--feature-matrix)
    - 5.1 Modul 1: Job Description Ingestion & Validation
    - 5.2 Modul 2: Candidate CV Ingestion & PII Masking
    - 5.3 Modul 3: Multi-Tier Screening & Scoring Execution
    - 5.4 Modul 4: 4-Tab Results Dashboard & Visual Analytics
    - 5.5 Modul 5: Report Export & Audit Trail
-6. [Non-Functional Requirements (NFRD) & SLA](#6-non-functional-requirements-nfrd--sla)
-   - 6.1 Performance & Latency SLA
-   - 6.2 Security, Privacy & Regulatory Compliance (EEO / GDPR / PDP)
-   - 6.3 Reliability & Offline Fallback Strategy
-   - 6.4 Resource Management & Scalability
-7. [User Interface & Dashboard Specifications](#7-user-interface--dashboard-specifications)
-   - 7.1 Panel Sidebar & Model Connection
-   - 7.2 Step 1 UI: Job Position Criteria Setup
-   - 7.3 Step 2 UI: Candidate CV Upload & Blind Anonymization
-   - 7.4 Step 3 UI: Scoring Configuration & 4-Tab Dashboard Results
-8. [Setup, Deployment & Environment Configuration](#8-setup-deployment--environment-configuration)
-9. [Future Product Roadmap](#9-future-product-roadmap)
-10. [Persetujuan & Metadata Dokumen](#10-persetujuan--metadata-dokumen)
+6. [User Interface & Dashboard Specifications](#6-user-interface--dashboard-specifications)
+   - 6.1 Panel Sidebar & Model Connection
+   - 6.2 Step 1 UI: Job Position Criteria Setup
+   - 6.3 Step 2 UI: Candidate CV Upload & Blind Anonymization
+   - 6.4 Step 3 UI: Scoring Configuration & 4-Tab Dashboard Results
+7. [Setup, Deployment & Environment Configuration](#7-setup-deployment--environment-configuration)
+8. [Persetujuan & Metadata Dokumen](#8-persetujuan--metadata-dokumen)
 
 ---
 
@@ -174,46 +167,6 @@ sequenceDiagram
     Note over HR,UI: TAHAP 4: ANALISIS HASIL, AUDIT, & EKSPOR LAPORAN
     UI-->>HR: Tampilkan Leaderboard, Blind-CV Audit, Plotly Charts, & Summary Table
     HR->>UI: Unduh Laporan Resmi (CSV / Excel .xlsx)
-```
-
----
-
-### 2.3 System State Lifecycle
-
-```mermaid
-stateDiagram-v2
-    [*] --> Idle: Inisialisasi Aplikasi
-    Idle --> ModelConfigured: Konfigurasi AI Provider (Gemini / OpenAI / Offline)
-    
-    state "Step 1: Job Description" as Step1 {
-        ModelConfigured --> JD_Ingested: Input PDF / GDrive / Text
-        JD_Ingested --> JD_Validated: Validasi Anti-Brief & Keyword Density
-        JD_Validated --> JD_Parsed: Ekstraksi Kriteria Terstruktur
-    }
-
-    state "Step 2: Candidate Ingestion" as Step2 {
-        JD_Parsed --> CVs_Ingested: Upload PDF Batch / GDrive Folder
-        CVs_Ingested --> CVs_Parsed: Section Chunking & Entity Extraction
-        CVs_Parsed --> CVs_Anonymized: Masking PII (Blind-CV Shield)
-    }
-
-    state "Step 3: Multi-Tier Screening" as Step3 {
-        CVs_Anonymized --> WeightsConfigured: Atur Bobot & Threshold
-        WeightsConfigured --> RunningEvaluation: Klik "Start AI Analysis"
-        
-        state RunningEvaluation {
-            [*] --> Tier1_Knockout: Hard Filter Check
-            Tier1_Knockout --> Tier2_VectorSim: Dense Embedding Cosine Match
-            Tier2_VectorSim --> Tier2_DomainCheck: Domain Role & Major Alignment
-            Tier2_DomainCheck --> Tier2_MismatchFilter: Critical Mismatch Penalty
-            Tier2_MismatchFilter --> Tier3_XAI: Generasi Pros/Cons & Rationale
-            Tier3_XAI --> [*]
-        }
-    }
-
-    RunningEvaluation --> ResultsReady: Peringkat & Visualisasi Leaderboard
-    ResultsReady --> Exported: Ekspor Laporan CSV / Excel (.xlsx)
-    Exported --> [*]
 ```
 
 ---
@@ -505,10 +458,8 @@ $$\text{Years}_{\text{relevant}} = \sum_{i} \left( \text{Duration}_i \times \tex
 
 $$S_{\text{exp}} = 
 \begin{cases} 
-\min\left(100.0, \; \frac{\text{Years}_{\text{relevant}}}{\text{MinExp}} \times 100.0
-ight), & \text{jika } \text{Years}_{\text{relevant}} > 0 \\
-\min\left(10.0, \; \frac{\sum \text{Duration}_i}{\text{MinExp}} \times 10.0
-ight), & \text{jika } \text{Years}_{\text{relevant}} = 0 \text{ (hanya transferable point)}
+\min\left(100.0, \; \frac{\text{Years}_{\text{relevant}}}{\text{MinExp}} \times 100.0\right), & \text{jika } \text{Years}_{\text{relevant}} > 0 \\
+\min\left(10.0, \; \frac{\sum \text{Duration}_i}{\text{MinExp}} \times 10.0\right), & \text{jika } \text{Years}_{\text{relevant}} = 0 \text{ (hanya transferable point)}
 \end{cases}$$
 
 ##### 3. Parameter Pendidikan & Keselarasan Jurusan ($S_{\text{edu}}$)
@@ -608,59 +559,28 @@ $$\text{Status} =
 
 ---
 
-## 6. Non-Functional Requirements (NFRD) & SLA
+## 6. User Interface & Dashboard Specifications
 
-### 6.1 Performance & Latency SLA
-
-| Operasi Sistem | Target SLA Latensi | Mekanisme Optimasi |
-| :--- | :--- | :--- |
-| **Ekstraksi Teks PDF** | **< 300 ms / berkas** | Pembacaan *in-memory byte stream* via `pypdf`. |
-| **Section Chunking & Regex Parsing** | **< 50 ms / berkas** | Pola *pre-compiled regex anchors* terisolasi. |
-| **Dense Vector Embedding (API)** | **< 800 ms / profil** | Payload teks yang dinormalisasi ($\le 8000$ karakter). |
-| **Multi-Tier Matching Computation** | **< 20 ms / profil** | Operasi vektorik numerik Python murni. |
-| **XAI Reasoning Generation (LLM)** | **< 1.5 detik / profil** | Model cepat `gemini-3.5-flash` / `gpt-4o-mini` dengan CoT terarah. |
-| **End-to-End Evaluation Pipeline** | **< 2.5 detik / CV** | *Session state caching* untuk menghindari redundansi parsing. |
-
-### 6.2 Security, Privacy & Regulatory Compliance
-1. **Ethical AI & Anti-Bias Shield:**
-   - 100% data PII sensitif disamarkan sebelum masuk ke model komputasi kecocokan (*Merit-Based Assessment*).
-2. **Kepatuhan Regulasi (GDPR / UU No. 27 Tahun 2022 tentang PDP):**
-   - Tidak ada data pribadi pelamar yang disimpan secara permanen di server (*ephemeral in-memory processing*).
-   - Seluruh berkas sementara yang diunduh via Google Drive otomatis dihapus setelah sesi pembacaan selesai (*secure temporary directory cleanup*).
-3. **Keamanan API Key:**
-   - Input API key pada Streamlit menggunakan tipe *password masking* dan tidak pernah dicatat ke dalam log publik repositori.
-
-### 6.3 Reliability & Offline Fallback Strategy
-* **Zero-Downtime Resilience:** Jika koneksi internet terputus atau kuota API habis (Error 429 / 400), sistem secara otomatis mengalihkan komputasi semantik ke **Local Sparse TF-IDF Vectorizer** dan mengaktifkan **Deterministic Rule-Based XAI Reasoner**. Seluruh fitur penapisan tetap beroperasi 100% secara lokal.
-
-### 6.4 Resource Management & Scalability
-* Konfigurasi `.streamlit/config.toml` mendukung batas unggah berkas hingga **200 MB** (`maxUploadSize = 200`).
-* *Session State Dictionary Caching* menyimpan hasil parsing dokumen sehingga perubahan bobot slider tidak memerlukan pembacaan ulang berkas PDF.
-
----
-
-## 7. User Interface & Dashboard Specifications
-
-### 7.1 Panel Sidebar & Model Connection
+### 6.1 Panel Sidebar & Model Connection
 * **AI Provider Selector:** Pilihan dropdown antara *Google Gemini* dan *OpenAI*.
 * **Model Dropdown:**
   - *Gemini:* `gemini-3.1-pro-preview`, `gemini-3.5-flash`, `gemini-3-flash-preview`, `gemini-3.1-flash-lite`, atau `Input Custom Model (Manual)`.
   - *OpenAI:* `gpt-4o-mini`, `gpt-4o`, `gpt-4-turbo`, `gpt-3.5-turbo`.
-* **API Key Input & Status:** Kolom input password dengan tombol **🔗 Connect to Model** dan tombol **🔌 Disconnect**.
+* **API Key Input & Status:** Kolom input password dengan tombol **🔗 Connect to Model** dan **🔌 Disconnect**.
 
-### 7.2 Step 1 UI: Job Position Criteria Setup
+### 6.2 Step 1 UI: Job Position Criteria Setup
 * Tab Navigasi: `PDF Upload`, `Import Google Drive`, `Type Text`.
-* Tombol Aksi: **Reset PDF / Drive / Text** dan tombol utama **Preview Job Criteria**.
-* Kartu Ekspander: Menampilkan rincian kriteria jabatan yang berhasil diekstrak (*Position, Major, Education, Experience, Technical Skills, Soft Skills, Responsibilities*).
+* Baris Header: Label judul sejajar dengan tombol **`Reset`** dan tombol utama **`Preview Job Criteria`**.
+* Kartu Ekspander: Menampilkan rincian kriteria jabatan teridentifikasi (*Position, Major, Education, Experience, Technical Skills, Soft Skills, Responsibilities*).
 
-### 7.3 Step 2 UI: Candidate CV Upload & Blind Anonymization
+### 6.3 Step 2 UI: Candidate CV Upload & Blind Anonymization
 * **Container Blind-CV:** Toggle sakelar *Blind-CV Anonymization* disertai 8 checkbox PII (*Full Name, Email, Phone, Gender, Age, Domicile, Profile Photo, University*).
-* Tab Navigasi: `PDF Upload` (Multi-file drag & drop) dan `Import Google Drive` (Folder link importer).
+* Tab Navigasi: `PDF Upload` (Multi-file drag & drop) dan `Import Google Drive` (Folder link importer dengan daftar preview file & tombol `✖`).
 * Indikator Status: Menampilkan badge jumlah total berkas CV yang siap dinilai.
 
-### 7.4 Step 3 UI: Scoring Configuration & 4-Tab Dashboard Results
+### 6.4 Step 3 UI: Scoring Configuration & 4-Tab Dashboard Results
 * Baris Pengaturan: Slider numerik *Threshold (%)*, *Skill Match (%)*, *Experience Depth (%)*, dan *Education (%)*.
-* Tombol Pengendali: Tombol **🔄 Reset Weights** dan tombol aksi **🚀 Start AI Analysis**.
+* Tombol Pengendali: Tombol **`Reset Weights`** dan tombol aksi **`Start AI Analysis`**.
 * **4-Tab Navigation View:**
   1. **Leaderboard & Screening Results:** Ringkasan metrik 3 kartu dan kartu profil terurut dengan rincian XAI (*Pros, Cons, Decision Rationale*).
   2. **Blind-CV Anonymization:** Dropdown pemilih CV dengan tampilan perbandingan JSON berdampingan (*Raw vs Sanitized*).
@@ -669,14 +589,14 @@ $$\text{Status} =
 
 ---
 
-## 8. Setup, Deployment & Environment Configuration
+## 7. Setup, Deployment & Environment Configuration
 
-### 8.1 Persyaratan Sistem
+### 7.1 Persyaratan Sistem
 - **Python:** Versi 3.10, 3.11, atau 3.12.
 - **Sistem Operasi:** Windows 10/11, macOS, atau Linux (Ubuntu 20.04+).
 - **Koneksi Jaringan:** Akses internet untuk integrasi Gemini/OpenAI API atau Google Drive Importer (Opsional untuk mode offline).
 
-### 8.2 Instalasi & Menjalankan Aplikasi
+### 7.2 Instalasi & Menjalankan Aplikasi
 ```bash
 # 1. Kloning Repositori
 git clone https://github.com/rrexzra36/Autonomous_Candidate_Screening_Platform.git
@@ -701,33 +621,8 @@ streamlit run src/app.py
 
 ---
 
-## 9. Future Product Roadmap
-
-```mermaid
-gantt
-    title Autonomous Candidate Screening Platform Roadmap
-    dateFormat  YYYY-MM-DD
-    section Phase 1: Core Foundation (Completed)
-    Multi-source PDF & GDrive Ingestion      :done, 2026-08-01, 2026-08-10
-    Layout-Aware Section Chunking            :done, 2026-08-10, 2026-08-15
-    Multi-Tier Scoring & Domain Filter       :done, 2026-08-15, 2026-08-18
-    Blind-CV Shield & XAI Justification      :done, 2026-08-18, 2026-08-21
-    Plotly Analytics & Excel Export          :done, 2026-08-21, 2026-08-22
-
-    section Phase 2: ATS Ecosystem Integration (Q4 2026)
-    Multi-lingual OCR Engine (Tesseract)     :active, 2026-09-01, 2026-10-15
-    ATS Webhook APIs (Greenhouse / Lever)    :2026-10-15, 2026-11-30
-    Automated Candidate Email Notification   :2026-11-15, 2026-12-15
-
-    section Phase 3: AI Interviewer & Voice Agent (Q1 2027)
-    Async AI Video Screening Assessment      :2027-01-10, 2027-02-28
-    Adaptive Technical Skill Quiz Generator  :2027-02-15, 2027-03-31
-```
-
----
-
-## 10. Persetujuan & Metadata Dokumen
+## 8. Persetujuan & Metadata Dokumen
 * **Author:** AI/ML Specialist Candidate
-* **Repository:** `D:\Github\Autonomous_Candidate_Screening_Platform`
-* **File:** `PRD.md` (v2.2.0)
-* **Status:** Verified, Comprehensive & Production-Ready
+* **Repository:** `rrexzra36/Autonomous_Candidate_Screening_Platform`
+* **File:** `PRD.md` (v2.3.0)
+* **Status:** Verified, Clean & Production-Ready
