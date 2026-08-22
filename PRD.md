@@ -5,7 +5,7 @@
 | :--- | :--- |
 | **Document Title** | Autonomous Candidate Screening Platform — Product Requirement Document |
 | **Project Name** | TalentAI Screening & Evaluation Engine |
-| **Author** | Reyhan Ezzra Bimantara |
+| **Author** | Reyhan Ezra Bimantara |
 | **Target Audience** | Hiring Managers, HR Executives, AI/ML Engineers |
 | **Document Version** | v2.3.0 (Production-Ready Architecture) |
 | **Repository** | `rrexzra36/Autonomous_Candidate_Screening_Platform` |
