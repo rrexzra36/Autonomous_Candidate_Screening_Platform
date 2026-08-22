@@ -100,7 +100,10 @@ S_{\text{edu}} = (S_{\text{deg}} \times 0.40) + (S_{\text{major}} \times 0.60)
 $$
 
 * **Critical Domain Mismatch Penalty:**
-Jika $N_{\text{tech}} = 0 \land \text{Years}_{\text{relevant}} = 0 \land S_{\text{major}} \le 50.0 \implies \text{Skor Akhir dikunci } \le 22.0\% \text{ (Status: Rejected)}$
+
+$$
+N_{\text{tech}} = 0 \;\land\; \text{Years}_{\text{relevant}} = 0 \;\land\; S_{\text{major}} \le 50.0 \implies S_{\text{overall}} \le 22.0\% \quad (\text{Status: Rejected})
+$$
 
 ---
 
