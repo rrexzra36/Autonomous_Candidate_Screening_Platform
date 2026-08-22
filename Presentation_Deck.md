@@ -44,32 +44,63 @@
 
 ### 1. Hierarchical Section Chunking & Isolated Named Entity Segmentation
 * **Definisi:** Algoritma NLP *Layout-Aware* yang membagi aliran teks mentah menjadi blok semantik terisolasi:
-  $$\text{CV Raw Text} \longrightarrow \big[ \mathcal{S}_{\text{Header}} \;\big|\; \mathcal{S}_{\text{Experience}} \;\big|\; \mathcal{S}_{\text{Education}} \;\big|\; \mathcal{S}_{\text{Skills}} \;\big|\; \mathcal{S}_{\text{Certifications}} \big]$$
+
+$$
+\text{CV Raw Text} \longrightarrow \big[ \mathcal{S}_{\text{Header}} \;\big|\; \mathcal{S}_{\text{Experience}} \;\big|\; \mathcal{S}_{\text{Education}} \;\big|\; \mathcal{S}_{\text{Skills}} \;\big|\; \mathcal{S}_{\text{Certifications}} \big]
+$$
+
 * **Benefit:** Menghilangkan salah baca regex (misal: biodata kontak tidak masuk ke pencapaian kerja).
 
 ### 2. Dense Semantic Vector Embeddings & Cosine Similarity
 * **Definisi:** Pemetaan teks lowongan ($\mathbf{u}$) dan CV ($\mathbf{v}$) ke dalam ruang vektor berdimensi tinggi (`text-embedding-004` / `text-embedding-3-small`).
 * **Formula Perhitungan Matematis:**
-  $$\text{Cosine Similarity} = \cos(\theta) = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\|_2 \|\mathbf{v}\|_2} = \frac{\sum_{i=1}^n u_i v_i}{\sqrt{\sum_{i=1}^n u_i^2} \cdot \sqrt{\sum_{i=1}^n v_i^2}}$$
-  $$S_{\text{semantic}} = \min\left(100.0, \; \max\left(0.0, \; \frac{\cos(\theta) \times 100 - 35.0}{0.55}\right)\right)$$
+
+$$
+\cos(\theta) = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\|_2 \|\mathbf{v}\|_2} = \frac{\sum_{i=1}^n u_i v_i}{\sqrt{\sum_{i=1}^n u_i^2} \cdot \sqrt{\sum_{i=1}^n v_i^2}}
+$$
+
+$$
+S_{\text{semantic}} = \min\left(100.0, \; \max\left(0.0, \; \frac{\cos(\theta) \times 100 - 35.0}{0.55}\right)\right)
+$$
 
 ---
 
 ## Slide 5: Inovasi Algoritma 3 (Multi-Tier Scoring & Domain Verification)
 
 ### A. Tier 1: Knockout Filter (Syarat Mutlak)
-$$\text{HardFilterPassed} = \left( \sum \text{Duration}_i \ge \text{MinExp} \right) \land \left( \text{Mandatory Certs Fulfilled} \right) \implies \text{Gagal: Penalti } 50\%$$
+
+$$
+\text{HardFilterPassed} = \left( \sum \text{Duration}_i \ge \text{MinExp} \right) \land \left( \forall c \in \text{MandatoryCerts}, \; c \in \text{CandidateCerts} \right)
+$$
+
+*(Jika gagal memenuhi syarat mutlak: Penalti 50% terhadap skor akhir).*
 
 ### B. Tier 2: Perhitungan Komponen Skor & Validasi Domain
+
 * **Decoupled Skill Score ($S_{\text{skill}}$):**
-  - Jika $N_{\text{tech}} = 0 \implies S_{\text{skill}} = \min\big(15.0, \; (R_{\text{soft}} \times 10.0) + (S_{\text{semantic}} \times 0.05)\big)$ *(Capped)*
-  - Jika $N_{\text{tech}} > 0 \implies S_{\text{skill}} = (R_{\text{tech}} \times 75.0) + (R_{\text{soft}} \times 15.0) + (\min(100, S_{\text{semantic}}) \times 0.10)$
+
+$$
+S_{\text{skill}} = 
+\begin{cases} 
+\min\left(15.0, \; (R_{\text{soft}} \times 10.0) + (S_{\text{semantic}} \times 0.05)\right), & \text{jika } N_{\text{tech}} = 0 \\
+(R_{\text{tech}} \times 75.0) + (R_{\text{soft}} \times 15.0) + (\min(100.0, S_{\text{semantic}}) \times 0.10), & \text{jika } N_{\text{tech}} > 0 
+\end{cases}
+$$
+
 * **Domain Experience Relevance ($S_{\text{exp}}$):**
-  $$\text{Years}_{\text{relevant}} = \sum (\text{Duration}_i \times \text{Relevance}_i) \quad \text{dimana } \text{Relevance}_i \in \{0.0, 0.5, 1.0\} \text{ (Jaccard Overlap)}$$
+
+$$
+\text{Years}_{\text{relevant}} = \sum_{i} \left( \text{Duration}_i \times \text{Relevance}_i \right), \quad \text{Relevance}_i \in \{0.0, \; 0.5, \; 1.0\}
+$$
+
 * **Education & Major Relevance ($S_{\text{edu}}$):**
-  $$S_{\text{edu}} = (S_{\text{deg}} \times 0.40) + (S_{\text{major}} \times 0.60)$$
+
+$$
+S_{\text{edu}} = (S_{\text{deg}} \times 0.40) + (S_{\text{major}} \times 0.60)
+$$
+
 * **Critical Domain Mismatch Penalty:**
-  Jika $N_{\text{tech}} = 0 \land \text{Years}_{\text{relevant}} = 0 \land S_{\text{major}} \le 50.0 \implies \text{Skor Akhir dikunci } \le 22.0\% \text{ (Status: Rejected)}$
+Jika $N_{\text{tech}} = 0 \land \text{Years}_{\text{relevant}} = 0 \land S_{\text{major}} \le 50.0 \implies \text{Skor Akhir dikunci } \le 22.0\% \text{ (Status: Rejected)}$
 
 ---
 
