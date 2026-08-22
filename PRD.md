@@ -440,7 +440,7 @@ $$
 Keahlian teknis (*Hard Tools*) dipisahkan secara tegas dari *Soft Skills*:
 
 $$
-R_{\text{tech}} = \frac{N_{\text{matched\_tech}}}{\max(N_{\text{jd\_tech}}, 1)}, \quad R_{\text{soft}} = \frac{N_{\text{matched\_soft}}}{\max(N_{\text{jd\_soft}}, 1)}
+R_{\text{tech}} = \frac{N_{\text{tech}}}{\max(N_{\text{jd,tech}}, 1)}, \quad R_{\text{soft}} = \frac{N_{\text{soft}}}{\max(N_{\text{jd,soft}}, 1)}
 $$
 
 **Aturan Penilaian Keahlian:**
@@ -448,8 +448,8 @@ $$
 $$
 S_{\text{skill}} = 
 \begin{cases} 
-\min\left(15.0, \; (R_{\text{soft}} \times 10.0) + (S_{\text{semantic}} \times 0.05)\right), & \text{jika } N_{\text{matched\_tech}} = 0 \\
-(R_{\text{tech}} \times 75.0) + (R_{\text{soft}} \times 15.0) + (\min(100.0, S_{\text{semantic}}) \times 0.10), & \text{jika } N_{\text{matched\_tech}} > 0 
+\min\left(15.0, \; (R_{\text{soft}} \times 10.0) + (S_{\text{semantic}} \times 0.05)\right), & \text{jika } N_{\text{tech}} = 0 \\
+(R_{\text{tech}} \times 75.0) + (R_{\text{soft}} \times 15.0) + (\min(100.0, S_{\text{semantic}}) \times 0.10), & \text{jika } N_{\text{tech}} > 0 
 \end{cases}
 $$
 
@@ -471,11 +471,11 @@ $$
 ##### 3. Parameter Pendidikan & Keselarasan Jurusan ($S_{\text{edu}}$)
 
 $$
-S_{\text{edu}} = (S_{\text{deg\_level}} \times 0.40) + (S_{\text{major\_relevance}} \times 0.60)
+S_{\text{edu}} = (S_{\text{deg}} \times 0.40) + (S_{\text{major}} \times 0.60)
 $$
 
-- **Skor Jenjang ($S_{\text{deg\_level}}$):** S2/Master = 100.0, S1/Bachelor = 90.0, D3/Diploma = 80.0, Jenjang lebih rendah = 45.0–50.0.
-- **Skor Keselarasan Jurusan ($S_{\text{major\_relevance}}$):**
+- **Skor Jenjang ($S_{\text{deg}}$):** S2/Master = 100.0, S1/Bachelor = 90.0, D3/Diploma = 80.0, Jenjang lebih rendah = 45.0–50.0.
+- **Skor Keselarasan Jurusan ($S_{\text{major}}$):**
   - Jurusan Selaras Sempurna (misal: *Teknik Arsitektur*): **95.0**
   - Rumpun Teknik Terkait / Engineering (misal: *Teknik Sipil*): **65.0**
   - Rumpun Desain/Bangunan Terkait (misal: *Desain Interior*): **55.0**

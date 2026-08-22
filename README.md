@@ -132,7 +132,7 @@ $$
 Keahlian teknis (*Hard Skills*) dipisahkan secara tegas dari *Soft Skills* untuk mencegah pelamar tanpa keahlian inti lolos seleksi:
 
 $$
-R_{\text{tech}} = \frac{N_{\text{matched\_tech}}}{\max(N_{\text{jd\_tech}}, 1)}, \quad R_{\text{soft}} = \frac{N_{\text{matched\_soft}}}{\max(N_{\text{jd\_soft}}, 1)}
+R_{\text{tech}} = \frac{N_{\text{tech}}}{\max(N_{\text{jd,tech}}, 1)}, \quad R_{\text{soft}} = \frac{N_{\text{soft}}}{\max(N_{\text{jd,soft}}, 1)}
 $$
 
 **Formula Penilaian Keahlian:**
@@ -140,8 +140,8 @@ $$
 $$
 S_{\text{skill}} = 
 \begin{cases} 
-\min\left(15.0, \; (R_{\text{soft}} \times 10.0) + (S_{\text{semantic}} \times 0.05)\right), & \text{jika } N_{\text{matched\_tech}} = 0 \\
-(R_{\text{tech}} \times 75.0) + (R_{\text{soft}} \times 15.0) + (\min(100.0, S_{\text{semantic}}) \times 0.10), & \text{jika } N_{\text{matched\_tech}} > 0 
+\min\left(15.0, \; (R_{\text{soft}} \times 10.0) + (S_{\text{semantic}} \times 0.05)\right), & \text{jika } N_{\text{tech}} = 0 \\
+(R_{\text{tech}} \times 75.0) + (R_{\text{soft}} \times 15.0) + (\min(100.0, S_{\text{semantic}}) \times 0.10), & \text{jika } N_{\text{tech}} > 0 
 \end{cases}
 $$
 
@@ -161,7 +161,7 @@ S_{\text{exp}} =
 $$
 
 $$
-S_{\text{edu}} = (S_{\text{deg\_level}} \times 0.40) + (S_{\text{major\_relevance}} \times 0.60)
+S_{\text{edu}} = (S_{\text{deg}} \times 0.40) + (S_{\text{major}} \times 0.60)
 $$
 
 ### 5. Critical Domain Mismatch Filter & Status Rekomendasi

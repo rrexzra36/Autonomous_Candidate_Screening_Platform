@@ -62,14 +62,14 @@ $$\text{HardFilterPassed} = \left( \sum \text{Duration}_i \ge \text{MinExp} \rig
 
 ### B. Tier 2: Perhitungan Komponen Skor & Validasi Domain
 * **Decoupled Skill Score ($S_{\text{skill}}$):**
-  - Jika $N_{\text{matched\_tech}} = 0 \implies S_{\text{skill}} = \min\big(15.0, \; (R_{\text{soft}} \times 10.0) + (S_{\text{semantic}} \times 0.05)\big)$ *(Capped)*
-  - Jika $N_{\text{matched\_tech}} > 0 \implies S_{\text{skill}} = (R_{\text{tech}} \times 75.0) + (R_{\text{soft}} \times 15.0) + (\min(100, S_{\text{semantic}}) \times 0.10)$
+  - Jika $N_{\text{tech}} = 0 \implies S_{\text{skill}} = \min\big(15.0, \; (R_{\text{soft}} \times 10.0) + (S_{\text{semantic}} \times 0.05)\big)$ *(Capped)*
+  - Jika $N_{\text{tech}} > 0 \implies S_{\text{skill}} = (R_{\text{tech}} \times 75.0) + (R_{\text{soft}} \times 15.0) + (\min(100, S_{\text{semantic}}) \times 0.10)$
 * **Domain Experience Relevance ($S_{\text{exp}}$):**
   $$\text{Years}_{\text{relevant}} = \sum (\text{Duration}_i \times \text{Relevance}_i) \quad \text{dimana } \text{Relevance}_i \in \{0.0, 0.5, 1.0\} \text{ (Jaccard Overlap)}$$
 * **Education & Major Relevance ($S_{\text{edu}}$):**
-  $$S_{\text{edu}} = (S_{\text{deg\_level}} \times 0.40) + (S_{\text{major\_relevance}} \times 0.60)$$
+  $$S_{\text{edu}} = (S_{\text{deg}} \times 0.40) + (S_{\text{major}} \times 0.60)$$
 * **Critical Domain Mismatch Penalty:**
-  Jika $N_{\text{matched\_tech}} = 0 \land \text{Years}_{\text{relevant}} = 0 \land S_{\text{major}} \le 50.0 \implies \text{Skor Akhir dikunci } \le 22.0\% \text{ (Status: Rejected)}$
+  Jika $N_{\text{tech}} = 0 \land \text{Years}_{\text{relevant}} = 0 \land S_{\text{major}} \le 50.0 \implies \text{Skor Akhir dikunci } \le 22.0\% \text{ (Status: Rejected)}$
 
 ---
 
