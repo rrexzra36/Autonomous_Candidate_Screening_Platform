@@ -396,31 +396,22 @@ Platform mengintegrasikan 5 algoritma AI/NLP komprehensif:
 ---
 
 ### 4.1 Algoritma 1: Layout-Aware Hierarchical Section Chunking
-* **Definisi:** Algoritma segmentasi tata letak dokumen berbasis *Regular Expression Anchors* yang memecah aliran teks kontinu CV ke dalam zona batas terisolasi sebelum ekstraksi entitas dijalankan.
-* **Tujuan Teknis:** Menjamin *zero cross-contamination* antar seksi dokumen. Contoh: nomor kontak pada header tidak terdeteksi sebagai durasi pengalaman kerja, atau nama mata kuliah di seksi pendidikan tidak disalahartikan sebagai sertifikasi profesional.
-* **Formulasi Segmentasi:**
-  $$\text{CV Raw Text} \xrightarrow{\text{Regex Anchor}} \Big\{ \mathcal{S}_{\text{Header}}, \; \mathcal{S}_{\text{Experience}}, \; \mathcal{S}_{\text{Education}}, \; \mathcal{S}_{\text{Skills}}, \; \mathcal{S}_{\text{Certifications}} \Big\}$$
-  
+* **Definisi:** Algoritma segmentasi tata letak dokumen berbasis *Regular Expression Anchors* yang memecah aliran teks kontinu CV ke dalam zona batas terisolasi (`Header`, `Experience`, `Education`, `Skills`, `Certifications`) sebelum ekstraksi entitas dijalankan.
+* **Tujuan Teknis:** Menjamin *zero cross-contamination* antar seksi dokumen (misal: nomor kontak pada header tidak terdeteksi sebagai durasi pengalaman kerja).
 * **Pola Regex Penanda Zona:**
-  - $\mathcal{P}_{\text{exp}} = \text{r'(?:WORK EXPERIENCE|PROFESSIONAL EXPERIENCE|EXPERIENCE|PENGALAMAN KERJA)'}$
-  - $\mathcal{P}_{\text{edu}} = \text{r'(?:EDUCATION|PENDIDIKAN|RIWAYAT PENDIDIKAN|ACADEMIC BACKGROUND)'}$
-  - $\mathcal{P}_{\text{skill}} = \text{r'(?:SKILLS & ABILITIES|TECHNICAL SKILLS|SKILLS|KEAHLIAN|COMPETENCIES)'}$
-  - $\mathcal{P}_{\text{cert}} = \text{r'(?:CERTIFICATIONS|CERTIFICATES|SERTIFIKAT|ACHIEVEMENTS)'}$
+  - `P_exp` = `(?:WORK EXPERIENCE|PROFESSIONAL EXPERIENCE|EXPERIENCE|PENGALAMAN KERJA)`
+  - `P_edu` = `(?:EDUCATION|PENDIDIKAN|RIWAYAT PENDIDIKAN|ACADEMIC BACKGROUND)`
+  - `P_skill` = `(?:SKILLS & ABILITIES|TECHNICAL SKILLS|SKILLS|KEAHLIAN|COMPETENCIES)`
+  - `P_cert` = `(?:CERTIFICATIONS|CERTIFICATES|SERTIFIKAT|ACHIEVEMENTS)`
 
 ---
 
 ### 4.2 Algoritma 2: Dense Semantic Vector Embeddings & Non-Linear Cosine Similarity
-* **Definisi:** Transformasi representasi tekstual profil lowongan kerja ($\mathbf{u}$) dan profil kandidat ($\mathbf{v}$) ke dalam ruang vektor berdimensi tinggi (*768-dim* pada Google Gemini `text-embedding-004` atau *1536-dim* pada OpenAI `text-embedding-3-small`).
+* **Definisi:** Transformasi representasi teks lowongan ($u$) dan profil kandidat ($v$) ke dalam ruang vektor berdimensi tinggi (*768-dim* pada Google Gemini `text-embedding-004` atau *1536-dim* pada OpenAI `text-embedding-3-small`).
 * **Formula Cosine Similarity:**
-  $$\cos(\theta) = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\|_2 \|\mathbf{v}\|_2} = \frac{\sum_{i=1}^n u_i v_i}{\sqrt{\sum_{i=1}^n u_i^2} \cdot \sqrt{\sum_{i=1}^n v_i^2}}$$
+  $$\text{Cosine Similarity} = \cos(\theta) = \frac{u \cdot v}{\|u\|_2 \cdot \|v\|_2} = \frac{\sum_{i=1}^n u_i v_i}{\sqrt{\sum_{i=1}^n u_i^2} \cdot \sqrt{\sum_{i=1}^n v_i^2}}$$
 * **Formula Normalisasi Non-Linear ($S_{\text{semantic}}$):**
-  Nilai *raw cosine similarity* untuk teks bahasa alami umumnya terkonsentrasi pada rentang sempit $0.35 \le \cos(\theta) \le 0.90$. Jika digunakan secara langsung, perbedaan antar kandidat menjadi kurang terdistribusi. Sistem menerapkan transformasi skala linier terikat (*clamped scaling function*):
   $$S_{\text{semantic}} = \min\left(100.0, \; \max\left(0.0, \; \frac{\cos(\theta) \times 100 - 35.0}{0.55}\right)\right)$$
-
-* **Fallback Sparse TF-IDF Vectorizer (Mode Offline):**
-  Saat koneksi API tidak tersedia, sistem membangun ruang vektor frekuensi term (*Term Frequency Vector*) terhadap gabungan kosakata unik $\mathcal{V}$:
-  $$\mathbf{w}_{\text{sparse}} = \left[ \frac{\text{count}(t_1)}{\|\mathbf{w}\|_2}, \; \frac{\text{count}(t_2)}{\|\mathbf{w}\|_2}, \; \dots, \; \frac{\text{count}(t_{|\mathcal{V}|})}{\|\mathbf{w}\|_2} \right]$$
-  $$S_{\text{semantic\_offline}} = \min\left(100.0, \; \max\left(0.0, \; \cos_{\text{sparse}}(\mathbf{u}, \mathbf{v}) \times 150.0\right)\right)$$
 
 ---
 
@@ -429,47 +420,38 @@ Platform mengintegrasikan 5 algoritma AI/NLP komprehensif:
 #### A. Tier 1: Deterministic Hard Filter (Knockout Criteria)
 Tahap validasi syarat mutlak sebelum pembobotan komposit dihitung:
 $$\text{HardFilterPassed} = \left( \sum_{i} \text{Duration}_i \ge \text{MinExp} \right) \land \left( \forall c \in \text{MandatoryCerts}, \; c \in \text{CandidateCerts} \right)$$
-*Jika $\neg \text{HardFilterPassed}$, kandidat otomatis dikenakan penalti pemotongan nilai akhir sebesar $50\%$.*
+*Jika gagal, kandidat otomatis dikenakan penalti pemotongan nilai akhir sebesar 50%.*
 
 #### B. Tier 2: Perhitungan Komponen Penilaian Terstruktur
 
 ##### 1. Parameter Kecocokan Keahlian ($S_{\text{skill}}$) — Decoupled Skills Architecture
-Keahlian teknis (*Hard Tools*) dipisahkan secara tegas dari *Soft Skills*. Hal ini mencegah kandidat yang hanya memiliki *Soft Skills* (misal: *Communication, Teamwork*) memperoleh skor tinggi pada posisi spesifik (misal: *Junior Architect*):
+Keahlian teknis (*Hard Tools*) dipisahkan secara tegas dari *Soft Skills*:
 - Rasio Kecocokan Teknis: $R_{\text{tech}} = \frac{N_{\text{matched\_tech}}}{\max(N_{\text{jd\_tech}}, 1)}$
 - Rasio Kecocokan Soft Skills: $R_{\text{soft}} = \frac{N_{\text{matched\_soft}}}{\max(N_{\text{jd\_soft}}, 1)}$
 
 **Aturan Penilaian Keahlian:**
-$$S_{\text{skill}} = 
-\begin{cases} 
-\min\Big(15.0, \; (R_{\text{soft}} \times 10.0) + (S_{\text{semantic}} \times 0.05)\Big), & \text{jika } N_{\text{matched\_tech}} = 0 \\
-(R_{\text{tech}} \times 75.0) + (R_{\text{soft}} \times 15.0) + (\min(100, S_{\text{semantic}}) \times 0.10), & \text{jika } N_{\text{matched\_tech}} > 0 
-\end{cases}$$
+- Jika $N_{\text{matched\_tech}} = 0$:
+  $$S_{\text{skill}} = \min\Big(15.0, \; (R_{\text{soft}} \times 10.0) + (S_{\text{semantic}} \times 0.05)\Big)$$
+- Jika $N_{\text{matched\_tech}} > 0$:
+  $$S_{\text{skill}} = (R_{\text{tech}} \times 75.0) + (R_{\text{soft}} \times 15.0) + (\min(100, S_{\text{semantic}}) \times 0.10)$$
 
 ##### 2. Parameter Relevansi Pengalaman Kerja Domain ($S_{\text{exp}}$)
-Sistem mengekstrak himpunan kata kunci domain profesi ($\mathcal{D}$) dari judul lowongan, jurusan wajib, dan keahlian teknis. Relevansi tiap entri kerja kandidat dihitung menggunakan overlap token semantik:
-$$\text{Relevance}_i = 
-\begin{cases} 
-1.0, & \text{jika } \text{Overlap}(\text{Role}_i, \mathcal{D}) \ge 0.12 \lor \text{HasTechSkill}_i \\
-0.5, & \text{jika } \text{Overlap}(\text{Role}_i, \mathcal{D}) > 0.04 \\
-0.0, & \text{jika di luar domain (misal: Data Automation untuk posisi Arsitektur)}
-\end{cases}$$
-
+Sistem mengekstrak himpunan kata kunci domain profesi ($D$) dari lowongan kerja dan menghitung durasi relevan:
 $$\text{Years}_{\text{relevant}} = \sum_{i} \left( \text{Duration}_i \times \text{Relevance}_i \right)$$
 
-$$S_{\text{exp}} = 
-\begin{cases} 
-\min\left(100.0, \; \frac{\text{Years}_{\text{relevant}}}{\text{MinExp}} \times 100.0\right), & \text{jika } \text{Years}_{\text{relevant}} > 0 \\
-\min\left(10.0, \; \frac{\sum \text{Duration}_i}{\text{MinExp}} \times 10.0\right), & \text{jika } \text{Years}_{\text{relevant}} = 0 \text{ (hanya transferable point)}
-\end{cases}$$
+- Jika $\text{Years}_{\text{relevant}} > 0$:
+  $$S_{\text{exp}} = \min\left(100.0, \; \frac{\text{Years}_{\text{relevant}}}{\text{MinExp}} \times 100.0\right)$$
+- Jika $\text{Years}_{\text{relevant}} = 0$:
+  $$S_{\text{exp}} = \min\left(10.0, \; \frac{\sum \text{Duration}_i}{\text{MinExp}} \times 10.0\right)$$
 
 ##### 3. Parameter Pendidikan & Keselarasan Jurusan ($S_{\text{edu}}$)
 $$S_{\text{edu}} = (S_{\text{deg\_level}} \times 0.40) + (S_{\text{major\_relevance}} \times 0.60)$$
 - **Skor Jenjang ($S_{\text{deg\_level}}$):** S2/Master = 100.0, S1/Bachelor = 90.0, D3/Diploma = 80.0, Jenjang lebih rendah = 45.0–50.0.
 - **Skor Keselarasan Jurusan ($S_{\text{major\_relevance}}$):**
-  - Jurusan Selaras Sempurna / Overlap $\ge 0.20$ (misal: *Teknik Arsitektur* untuk posisi *Architect*): **$95.0$**
-  - Rumpun Teknik Terkait / Engineering (misal: *Teknik Sipil*): **$65.0$**
-  - Rumpun Desain/Bangunan Terkait (misal: *Desain Interior*): **$55.0$**
-  - Jurusan Lintas Disiplin / Tidak Relevan (misal: *Sistem Informasi / Akuntansi*): **$20.0$**
+  - Jurusan Selaras Sempurna (misal: *Teknik Arsitektur*): **95.0**
+  - Rumpun Teknik Terkait / Engineering (misal: *Teknik Sipil*): **65.0**
+  - Rumpun Desain/Bangunan Terkait (misal: *Desain Interior*): **55.0**
+  - Jurusan Lintas Disiplin / Tidak Relevan: **20.0**
 
 #### C. Pembobotan Komposit & Penalti Mismatch Kritis
 Skor mentah dihitung berdasarkan bobot dinamis ($W_{\text{skill}}, W_{\text{exp}}, W_{\text{edu}}$):
@@ -478,22 +460,14 @@ $$S_{\text{raw}} = (S_{\text{skill}} \times W_{\text{skill}}) + (S_{\text{exp}} 
 
 **Critical Cross-Domain Mismatch Capping Filter:**
 Jika kandidat memiliki **0 technical skill relevan** DAN **0 tahun pengalaman kerja relevan**:
-$$S_{\text{overall}} = 
-\begin{cases} 
-\min(22.0, \; S_{\text{raw}}), & \text{jika } S_{\text{major}} \le 50.0 \text{ (Jurusan berbeda total, misal: IT ke Arsitektur)} \\
-\min(28.0, \; S_{\text{raw}}), & \text{jika } S_{\text{major}} > 50.0 \\
-S_{\text{raw}}, & \text{kandidat dalam domain relevan}
-\end{cases}$$
-
-Jika $\neg \text{HardFilterPassed}$, maka skor akhir dikalikan penalti: $S_{\text{overall}} = S_{\text{overall}} \times 0.5$.
+- Jika $S_{\text{major}} \le 50.0$ (Jurusan berbeda total): $S_{\text{overall}} = \min(22.0, \; S_{\text{raw}})$
+- Jika $S_{\text{major}} > 50.0$: $S_{\text{overall}} = \min(28.0, \; S_{\text{raw}})$
+- Kandidat dalam domain relevan: $S_{\text{overall}} = S_{\text{raw}}$
 
 #### D. Klasifikasi Keputusan Rekomendasi
-$$\text{Status} = 
-\begin{cases} 
-\mathbf{Pass}, & \text{jika } S_{\text{overall}} \ge \text{Threshold} \land \text{HardFilterPassed} \\
-\mathbf{Considered}, & \text{jika } S_{\text{overall}} \ge \max(\text{Threshold} - 15.0, \; 45.0) \\
-\mathbf{Rejected}, & \text{lainnya}
-\end{cases}$$
+- **Pass:** $S_{\text{overall}} \ge \text{Threshold} \land \text{HardFilterPassed}$
+- **Considered:** $S_{\text{overall}} \ge \max(\text{Threshold} - 15.0, \; 45.0)$
+- **Rejected:** Di bawah batas Considered atau tidak memenuhi syarat mutlak.
 
 ---
 
