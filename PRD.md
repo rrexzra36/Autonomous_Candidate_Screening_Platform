@@ -5,10 +5,9 @@
 | :--- | :--- |
 | **Document Title** | Autonomous Candidate Screening Platform — Product Requirement Document |
 | **Project Name** | TalentAI Screening & Evaluation Engine |
-| **Author** | AI/ML Specialist Candidate |
-| **Target Audience** | Technical Assessors, Hiring Managers, HR Executives, Software Engineers, AI/ML Engineers |
+| **Author** | Reyhan Ezzra Bimantara |
+| **Target Audience** | Hiring Managers, HR Executives, AI/ML Engineers |
 | **Document Version** | v2.3.0 (Production-Ready Architecture) |
-| **Status** | Approved & Fully Implemented |
 | **Repository** | `rrexzra36/Autonomous_Candidate_Screening_Platform` |
 | **Last Updated** | 22 Agustus 2026 |
 
@@ -642,7 +641,5 @@ streamlit run src/app.py
 ---
 
 ## 8. Persetujuan & Metadata Dokumen
-* **Author:** AI/ML Specialist Candidate
+* **Author:** Reyhan Ezra Bimantara
 * **Repository:** `rrexzra36/Autonomous_Candidate_Screening_Platform`
-* **File:** `PRD.md` (v2.3.0)
-* **Status:** Verified, Clean & Production-Ready

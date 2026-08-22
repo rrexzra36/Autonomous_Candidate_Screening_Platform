@@ -1,8 +1,5 @@
 # 🤖 Autonomous Candidate Screening Platform (TalentAI Engine)
 
-> **AI Specialist Technical Assessment Solution**  
-> Platform penapisan dan seleksi CV kandidat otomatis berbasis AI end-to-end dengan sistem **Ethical Blind Anonymization**, **Hierarchical Section Chunking**, **Dense Semantic Vector Embeddings**, **Anti-Hallucination Domain Scoring Engine**, dan **Explainable AI (XAI)**.
-
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-blue?logo=python)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-v1.30+-FF4B4B?logo=streamlit)](https://streamlit.io/)
 [![Google Gemini](https://img.shields.io/badge/Google%20Gemini-3.x%20%2F%202.5-4285F4?logo=google)](https://ai.google.dev/)
@@ -303,6 +300,6 @@ Untuk mempelajari spesifikasi produk, arsitektur teknis mendalam, formula matema
 ---
 
 ## 📄 Lisensi & Kontributor
-* **Author:** AI/ML Specialist Candidate
+* **Author:** Reyhan Ezra Bimantara
 * **Project:** Autonomous Candidate Screening Platform (TalentAI Engine)
 * **Lisensi:** MIT License (2026)
